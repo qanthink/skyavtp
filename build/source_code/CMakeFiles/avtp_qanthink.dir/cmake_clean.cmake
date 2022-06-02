@@ -1,8 +1,8 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/avtp_qanthink.dir/src/udpsocket.cpp.o"
-  "CMakeFiles/avtp_qanthink.dir/src/avtp_server.cpp.o"
-  "CMakeFiles/avtp_qanthink.dir/src/avtp_client.cpp.o"
   "CMakeFiles/avtp_qanthink.dir/src/avtp.cpp.o"
+  "CMakeFiles/avtp_qanthink.dir/src/avtp_client.cpp.o"
+  "CMakeFiles/avtp_qanthink.dir/src/avtp_server.cpp.o"
+  "CMakeFiles/avtp_qanthink.dir/src/udpsocket.cpp.o"
   "libavtp_qanthink.pdb"
   "libavtp_qanthink.a"
 )

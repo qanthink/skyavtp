@@ -1,2 +1,2 @@
-/usr/bin/ar qc libavtp_qanthink.a  CMakeFiles/avtp_qanthink.dir/src/udpsocket.cpp.o CMakeFiles/avtp_qanthink.dir/src/avtp_server.cpp.o CMakeFiles/avtp_qanthink.dir/src/avtp_client.cpp.o CMakeFiles/avtp_qanthink.dir/src/avtp.cpp.o
+/usr/bin/ar qc libavtp_qanthink.a  CMakeFiles/avtp_qanthink.dir/src/avtp.cpp.o CMakeFiles/avtp_qanthink.dir/src/avtp_client.cpp.o CMakeFiles/avtp_qanthink.dir/src/avtp_server.cpp.o CMakeFiles/avtp_qanthink.dir/src/udpsocket.cpp.o
 /usr/bin/ranlib libavtp_qanthink.a

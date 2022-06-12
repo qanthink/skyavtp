@@ -111,7 +111,7 @@ public:
 */
 class AvtpVideoBase {
 public:
-	AvtpVideoBase(bool bBind, const char *hostIP, const char *destIP);
+	AvtpVideoBase(bool bBind, const char *hostIP, const char *destIP, const unsigned short port);
 	~AvtpVideoBase();
 
 public:

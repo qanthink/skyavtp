@@ -15,11 +15,22 @@ using namespace std;
 
 int main()
 {
+	cout << "Please enter address << " << endl;
+	char ipAddr[128] = { 0 };
+	cin >> ipAddr;
+
+	cout << "Please enter address << " << endl;
+	unsigned int port = 0;
+	cin >> port;
+
+	cout << ipAddr << endl;
+	cout << port << endl;
+
 	/* 1.init video decoder. */
 	VDecoder vdecoder;
 #if 1
 	/* 2.avtp connection. */
-	AvtpVideoServer avtpServer("192.168.0.5", "192.168.0.100");
+	AvtpVideoServer avtpServer("192.168.0.5", "192.168.0.100", port);
 	vdecoder.initWithArg(AV_CODEC_ID_H265);
 #else
 	vdecoder.initWithFile("C:\\Users\\zgxxg\\Documents\\Visual Studio 2015\\Projects\\ffmpeg_opcv\\samples\\test1.265");

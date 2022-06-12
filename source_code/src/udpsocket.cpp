@@ -52,12 +52,12 @@ UdpSocket::UdpSocket(bool bBind, const char *_hostIP, const char *_destIP, unsig
 	stSockAddrHost.sin_family = AF_INET;
 	stSockAddrHost.sin_port = htons(ipPort);
 	//stSockAddrHost.sin_addr.S_un.S_addr = INADDR_ANY;
-	inet_pton(AF_INET, hostIP, (void *)&stSockAddrHost.sin_addr);
+	inet_pton(AF_INET, hostIP, (void *)&stSockAddrHost.sin_addr.s_addr);
 
 	memset(&stSockAddrDst, 0, sizeof(struct sockaddr_in));
 	stSockAddrDst.sin_family = AF_INET;
 	stSockAddrDst.sin_port = htons(ipPort);
-	inet_pton(AF_INET, destIP, (void *)&stSockAddrDst.sin_addr);
+	inet_pton(AF_INET, destIP, (void *)&stSockAddrDst.sin_addr.s_addr);
 
 	int ret = 0;
 #ifdef _WIN64
@@ -304,6 +304,7 @@ int UdpSocket::peek(void *const dataBuf, const int dataSize)
 	sockLen = sizeof(struct sockaddr_in);
 	ret = recvfrom(sfd, (char *)dataBuf, dataSize, MSG_PEEK | MSG_DONTWAIT, (struct sockaddr *)&stSockAddrDst, &sockLen);
 #endif
+	cout << stSockAddrDst.sin_addr.s_addr << ", " << ntohs(stSockAddrDst.sin_port) << endl;
 	if(-1 == ret)
 	{
 #ifdef _WIN64

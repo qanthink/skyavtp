@@ -13,7 +13,7 @@ class AvtpVideoClient : public AvtpVideoBase
 {
 public:
 	/* 借助父类构造子类 */
-	AvtpVideoClient(const char *hostIP, const char *destIP) : AvtpVideoBase(true, hostIP, destIP){}
+	AvtpVideoClient(const char *hostIP, const char *destIP, const unsigned short port) : AvtpVideoBase(true, hostIP, destIP, port){}
 private:
 	/* 子类必须重写纯虚函数 */
 	void *stateMachine(void *arg);

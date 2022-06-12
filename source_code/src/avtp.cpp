@@ -19,7 +19,7 @@ using namespace std;
 	功能：	构造抽象类，初始化参数。
 	注意：	
 */
-AvtpVideoBase::AvtpVideoBase(bool bBind, const char *hostIP, const char *destIP)
+AvtpVideoBase::AvtpVideoBase(bool bBind, const char *hostIP, const char *destIP, const unsigned short port)
 {
 	cout << "Call AvtpVideoBase::AvtpVideoBase()." << endl;
 	bRunning = false;
@@ -29,7 +29,7 @@ AvtpVideoBase::AvtpVideoBase(bool bBind, const char *hostIP, const char *destIP)
 	curFrameSize = 0;
 	pThSM = NULL;
 	pThSS = NULL;
-	pUdpSocket = make_shared<UdpSocket>(bBind, hostIP, destIP, udpPort);
+	pUdpSocket = make_shared<UdpSocket>(bBind, hostIP, destIP, port);
 	start();
 	strHostIP = hostIP;
 	strDestIP = destIP;
@@ -748,7 +748,7 @@ double AvtpVideoBase::lossRateCalculator(bool bResend)
 	sendCnt++;
 	if(sendCnt > 1024)
 	{
-		lossRate = (double)resendCnt / sendCnt;
+		lossRate = (float)((double)resendCnt / sendCnt);
 		sendCnt = 0;
 		resendCnt = 0;
 	}

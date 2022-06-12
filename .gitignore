@@ -31,7 +31,8 @@ build*
 temp
 tmp
 
-build/
+build/*
+/build
 out
 .vs
 release

@@ -60,7 +60,7 @@ void *AvtpVideoServer::stateMachine(void *arg)
 				continue;
 			}
 
-			cout << "judge: TYPE_CMD_ReqHand != avtpCmd.avtpDataType ?" << endl;
+			cout << strDestIP << ", judge: TYPE_CMD_ReqHand != avtpCmd.avtpDataType ?" << endl;
 			if(avtpDataType::TYPE_CMD_ReqHand != avtpCmd.avtpDataType)	// 没有收到连接请求，继续等待。
 			{
 				cout << "TYPE_CMD_ReqHand != avtpCmd.avtpDataType" << endl;

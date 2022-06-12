@@ -1,0 +1,23 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ImportGroup Label="PropertySheets" />
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <IncludePath>Z:\Workspace\skyavtp\source_code\windows_visual_studio;Z:\Workspace\skyavtp\source_code\inc;C:\Users\zgxxg\Documents\Visual Studio 2015\Projects\ffmpeg_opcv\ffmpeg\include;C:\Users\zgxxg\Documents\Visual Studio 2015\Projects\ffmpeg_opcv\opcv\include;$(IncludePath)</IncludePath>
+    <ReferencePath>
+    </ReferencePath>
+    <LibraryPath>C:\Users\zgxxg\Documents\Visual Studio 2015\Projects\ffmpeg_opcv\opcv\lib;C:\Users\zgxxg\Documents\Visual Studio 2015\Projects\ffmpeg_opcv\ffmpeg\lib;$(LibraryPath)</LibraryPath>
+    <LibraryWPath>
+    </LibraryWPath>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <SDLCheck>false</SDLCheck>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    </ClCompile>
+    <Link>
+      <StackReserveSize>10240000</StackReserveSize>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup />
+</Project>

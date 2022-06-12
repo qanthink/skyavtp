@@ -19,7 +19,7 @@ using namespace std;
 	功能：	构造抽象类，初始化参数。
 	注意：	
 */
-AvtpVideoBase::AvtpVideoBase(const char *hostIP, const char *destIP)
+AvtpVideoBase::AvtpVideoBase(bool bBind, const char *hostIP, const char *destIP)
 {
 	cout << "Call AvtpVideoBase::AvtpVideoBase()." << endl;
 	bRunning = false;
@@ -29,8 +29,10 @@ AvtpVideoBase::AvtpVideoBase(const char *hostIP, const char *destIP)
 	curFrameSize = 0;
 	pThSM = NULL;
 	pThSS = NULL;
-	pUdpSocket = make_shared<UdpSocket>(hostIP, destIP, udpPort);
+	pUdpSocket = make_shared<UdpSocket>(bBind, hostIP, destIP, udpPort);
 	start();
+	strHostIP = hostIP;
+	strDestIP = destIP;
 	cout << "Call AvtpVideoBase::AvtpVideoBase() end." << endl;
 }
 
@@ -711,11 +713,12 @@ int AvtpVideoBase::sendSliceGroup(const unsigned int groupSize)
 			}
 		}
 		lock.clear();	// 释放锁
+		// 帧率需要与sleep 时间匹配，也即帧率需要与网络环境关联。如果收发延迟峰值60ms, 则最大帧率为100/60=15
 		//this_thread::sleep_for(chrono::milliseconds(250));	// test, ubuntu ok
 		//this_thread::sleep_for(chrono::milliseconds(125));	// test, ubuntu ok
 		//this_thread::sleep_for(chrono::milliseconds(75));	// test, ubuntu lossRate = 0.0195122
-		this_thread::sleep_for(chrono::milliseconds(30));	// test, ubuntu lossRate = 0.0043
-		//this_thread::sleep_for(chrono::milliseconds(50));	// FPS = 1000 / 50 = 20.
+		//this_thread::sleep_for(chrono::milliseconds(30));	// test, ubuntu lossRate = 0.0043
+		this_thread::sleep_for(chrono::milliseconds(50));	// FPS = 1000 / 50 = 20.
 		//this_thread::sleep_for(chrono::milliseconds(15));	// FPS = 1000 / 15 = 66.67.
 		//this_thread::sleep_for(chrono::milliseconds(30));		// FPS = 1000 / 30 = 33.33
 		//this_thread::sleep_for(chrono::milliseconds(5));		// FPS = 1000 / 5 = 200.
@@ -933,6 +936,7 @@ void *AvtpVideoBase::stateShow(void *arg)
 	{
 		cout << "Avtp running, connnected, allowpacking status = " << (int)bRunning << ", " << (int)bConnected << ", " << (int)bAllowPacking << endl;
 		cout << "Avtp curFrameID = " << curFrameID << ", curFrameSize = " << curFrameSize << ", lossRate = " << setprecision(6) << lossRate << endl;
+		cout << "hostIP = " << strHostIP << ", destIP = " << strDestIP << endl;
 		this_thread::sleep_for(chrono::microseconds(ssTimeMS * 1000));
 	}
 	cout << "Call stateShow() end." << endl;

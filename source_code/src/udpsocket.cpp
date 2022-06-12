@@ -26,10 +26,10 @@ using namespace std;
 	返回：	返回0.
 	注意：	通常使用带参构造函数完成对象的定义和初始化。而该函数用于对象定义和初始化分离的情况。
 */
-int UdpSocket::create(const char *_hostIP, const char *_destIP, unsigned short _ipPort)
+int UdpSocket::create(bool bBind, const char *_hostIP, const char *_destIP, unsigned short _ipPort)
 {
 	cout << "Call UdpSocket::create()." << endl;
-	UdpSocket(_hostIP, _destIP, _ipPort);
+	UdpSocket(bBind, _hostIP, _destIP, _ipPort);
 	cout << "Call UdpSocket::create() end." << endl;
 	return 0;
 }
@@ -39,7 +39,7 @@ int UdpSocket::create(const char *_hostIP, const char *_destIP, unsigned short _
 	返回：	返回0.
 	注意：	通常用此带参构造函数完成对象的定义和初始化。
 */
-UdpSocket::UdpSocket(const char *_hostIP, const char *_destIP, unsigned short _ipPort)
+UdpSocket::UdpSocket(bool bBind, const char *_hostIP, const char *_destIP, unsigned short _ipPort)
 {
 	cout << "Call UdpSocket::UdpSocket()." << endl;
 
@@ -79,13 +79,16 @@ UdpSocket::UdpSocket(const char *_hostIP, const char *_destIP, unsigned short _i
 		cerr << "Fail to call socket()." << endl;
 	}
 
-	// bind();	// 主动端可省略绑定。
-	ret = bind(sfd, (struct sockaddr *)&stSockAddrHost, sizeof(struct sockaddr));
-	if(-1 == ret)
+	if(bBind)
 	{
-		cerr << "Fail to call bind()." << endl;
+		// bind();	// 主动端可省略绑定。
+		ret = bind(sfd, (struct sockaddr *)&stSockAddrHost, sizeof(struct sockaddr));
+		if(-1 == ret)
+		{
+			cerr << "Fail to call bind()." << endl;
+			return;
+		}
 	}
-
 #if 0
 #ifdef _WIN64
 	/* 设置socket IO 为阻塞/非阻塞模式 */

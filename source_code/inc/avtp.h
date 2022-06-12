@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <thread>
+#include <string>
 #include "udpsocket.h"
 
 #define AVTP_PORT 1995
@@ -110,7 +111,7 @@ public:
 */
 class AvtpVideoBase {
 public:
-	AvtpVideoBase(const char *hostIP, const char *destIP);
+	AvtpVideoBase(bool bBind, const char *hostIP, const char *destIP);
 	~AvtpVideoBase();
 
 public:
@@ -157,7 +158,9 @@ protected:
 
 protected:
 	const int udpPort = 1989;				// AVTP 协议约定端口号。
-	const unsigned int ssTimeMS = 2500;		// 状态显示间隔时间。
+	const unsigned int ssTimeMS = 3000;		// 状态显示间隔时间。
+	std::string strHostIP;
+	std::string strDestIP;
 	
 	bool bRunning = false;					// Server + Client: 运行状态
 	bool bConnected = false;				// Server + Client: 连接状态

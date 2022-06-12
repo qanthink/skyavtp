@@ -18,10 +18,10 @@ xxx 版权所有。
 
 class UdpSocket {
 public:
-	int create(const char *_hostIP, const char *_destIP, unsigned short _ipPort);		// 创建套接字，与构造函数具有相同功能。
+	int create(bool bBind, const char *_hostIP, const char *_destIP, unsigned short _ipPort);		// 创建套接字，与构造函数具有相同功能。
 
-	UdpSocket() {};
-	UdpSocket(const char *_hostIP, const char *_destIP, unsigned short _ipPort);		// 用构造函数创建套接字。
+	UdpSocket(){};
+	UdpSocket(bool bBind, const char *_hostIP, const char *_destIP, unsigned short _ipPort);		// 用构造函数创建套接字。
 	~UdpSocket();
 
 	int send(const void *const dataBuf, const int dataSize);			// 发送UDP 数据。

@@ -24,10 +24,10 @@ public:
 	UdpSocket(bool bBind, const char *_hostIP, const char *_destIP, unsigned short _ipPort);		// 用构造函数创建套接字。
 	~UdpSocket();
 
-	int send(const void *const dataBuf, const int dataSize);			// 发送UDP 数据。
-	int recv(void *const dataBuf, const int dataSize);					// 以阻塞方式接收UDP 数据。
+	int sendTo(const void *const dataBuf, const int dataSize, const char *ipAddr);			// 发送UDP 数据。
+	int recvFrom(void *const dataBuf, const int dataSize);					// 以阻塞方式接收UDP 数据。
 	int recvNonblock(void *const dataBuf, const int dataSize);			// 以非阻塞方式接收UDP 数据。
-	int peek(void *const dataBuf, const int dataSize);					// 以非阻塞方式窥探UDP 数据，而不将数据从缓冲中移除。从而后续的recv() 可以再次获取数据。
+	int peek(void *const dataBuf, const int dataSize, char *ipAddr, const unsigned int ipAddrLen);					// 以非阻塞方式窥探UDP 数据，而不将数据从缓冲中移除。从而后续的recv() 可以再次获取数据。
 	int relinquish();													// 以非阻塞方式从缓冲中移除UDP 数据。
 
 	int checkTimeOutMs(unsigned int millisecond);						// 检测超时。

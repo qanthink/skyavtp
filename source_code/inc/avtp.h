@@ -72,7 +72,13 @@ public:
 class videoSlice_t{
 public:
 	//const static unsigned int sliceBufMaxSize = 512;
-	const static unsigned int sliceBufMaxSize = 1436;
+	//const static unsigned int sliceBufMaxSize = 1436;
+	//const static unsigned int sliceBufMaxSize = 2000;
+	const static unsigned int sliceBufMaxSize = 4000;
+	//const static unsigned int sliceBufMaxSize = 6100;
+	//const static unsigned int sliceBufMaxSize = 8100;
+	//const static unsigned int sliceBufMaxSize = 12200;
+	//const static unsigned int sliceBufMaxSize = 16300;
 
 public:
 	unsigned int avtpDataType = avtpDataType::TYPE_INVALID;	// 第1个int: 数据类型。
@@ -120,18 +126,18 @@ public:
 	bool isRunning();						// 运行状态。
 	bool isConnected();						// 是否处于连接状态
 	
-	int recvVideoFrame(void *const frameBuff, const unsigned int frameSize);			// Server: 以阻塞形式从传输协议中获取一帧视频数据。
-	int sendVideoFrame(const void *const frameBuff, const unsigned int frameSize);		// Client: 以阻塞形式将一帧视频数据送入传输协议中。
+	int recvVideoFrame(void *const frameBuff, const unsigned int frameSize, const char *ipAddr);			// Server: 以阻塞形式从传输协议中获取一帧视频数据。
+	int sendVideoFrame(const void *const frameBuff, const unsigned int frameSize, const char *ipAddr);		// Client: 以阻塞形式将一帧视频数据送入传输协议中。
 	double getLossRate() const;
 
 protected:
 	/* 握手协议、传输应答协议相关函数 */
-	int requestHandShake();					// Client: 请求握手。
+	int requestHandShake(const char *ipAddr);					// Client: 请求握手。
 	int waitHandShakeAgree(unsigned int waitTimeMs = 15, unsigned int waitCnt = 40);				// Client: 等待对方同意握手。
-	int agreeHandShake();					// Server: 同意握手。
+	int agreeHandShake(const char *ipAddr);					// Server: 同意握手。
 	
-	int reqNextFrm();						// Server: 请求下一帧数据
-	int answerSliceAck(const unsigned int frameID, const unsigned sliceSeq);			// Server: 回应ACK.
+	int reqNextFrm(const char *ipAddr);						// Server: 请求下一帧数据
+	int answerSliceAck(const unsigned int frameID, const unsigned sliceSeq, const char *ipAddr);			// Server: 回应ACK.
 
 	/* 打包Frame 和slice 的相关函数，需要原子操作 */
 	const unsigned int calculateSliceNum(const unsigned int frameSize) const;			// Server + Client: 计算片组中，片的数量。
@@ -141,7 +147,7 @@ protected:
 	int videoSliceGroupIsEmpty();			// Server + Client: 片组判空。
 	int packingSlice2Frame(void *const frameBuff, const unsigned int bufSize);			// Server: 将片重组为帧。
 	int packingFrame2Slice(const void *const frameBuff, const unsigned int frameSize);	// Client: 将帧分解为片。
-	int sendSliceGroup(const unsigned int groupSize);									// Client: 发送片组。
+	int sendSliceGroup(const unsigned int groupSize, const char *ipAddr);									// Client: 发送片组。
 
 	double lossRateCalculator(bool bResend);
 
@@ -163,8 +169,8 @@ protected:
 	std::string strDestIP;
 	
 	bool bRunning = false;					// Server + Client: 运行状态
-	bool bConnected = false;				// Server + Client: 连接状态
-	volatile bool bAllowPacking = false;	// Client: 是否允许打包
+	bool bConnected = true;				// Server + Client: 连接状态
+	volatile bool bAllowPacking = true;	// Client: 是否允许打包
 	unsigned int curFrameID = 0;			// Server + Client: 帧ID
 	unsigned int curFrameSize = 0;			// Server + Client: 帧尺寸
 	videoSliceGroup_t videoSliceGroup;		// Server + Client: 片组

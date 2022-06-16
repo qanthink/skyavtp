@@ -157,7 +157,7 @@ UdpSocket::~UdpSocket()
 	返回：	成功，返回字节数；失败，返回-1；
 	注意：	
 */
-int UdpSocket::send(const void *const dataBuf, const int dataSize)
+int UdpSocket::sendTo(const void *const dataBuf, const int dataSize, const char *ipAddr)
 {
 	//cout << "Call UdpSocket::send()." << endl;
 
@@ -174,6 +174,10 @@ int UdpSocket::send(const void *const dataBuf, const int dataSize)
 	}
 
 	int ret = 0;
+	memset(&stSockAddrDst, 0, sizeof(struct sockaddr_in));
+	stSockAddrDst.sin_family = AF_INET;
+	stSockAddrDst.sin_port = htons(ipPort);
+	inet_pton(AF_INET, ipAddr, (void *)&stSockAddrDst.sin_addr.s_addr);
 	ret = sendto(sfd, (char *)dataBuf, dataSize, 0, (struct sockaddr*)&stSockAddrDst, sizeof(struct sockaddr));
 	if(-1 == ret)
 	{
@@ -201,7 +205,7 @@ int UdpSocket::send(const void *const dataBuf, const int dataSize)
 	返回：	成功，返回字节数；失败，返回-1；
 	注意：	
 */
-int UdpSocket::recv(void *const dataBuf, const int dataSize)
+int UdpSocket::recvFrom(void *const dataBuf, const int dataSize)
 {
 	//cout << "Call UdpSocket::recv()." << endl;
 	//ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags, struct sockaddr *src_addr, socklen_t *addrlen);
@@ -286,7 +290,7 @@ int UdpSocket::recvNonblock(void *const dataBuf, const int dataSize)
 	返回：	成功，返回字节数；超时无数据，-2；失败，返回-1.
 	注意：	
 */
-int UdpSocket::peek(void *const dataBuf, const int dataSize)
+int UdpSocket::peek(void *const dataBuf, const int dataSize, char *ipAddr, const unsigned int ipAddrLen)
 {
 	//cout << "Call UdpSocket::peek()." << endl;
 	//ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags, struct sockaddr *src_addr, socklen_t *addrlen);
@@ -304,7 +308,10 @@ int UdpSocket::peek(void *const dataBuf, const int dataSize)
 	sockLen = sizeof(struct sockaddr_in);
 	ret = recvfrom(sfd, (char *)dataBuf, dataSize, MSG_PEEK | MSG_DONTWAIT, (struct sockaddr *)&stSockAddrDst, &sockLen);
 #endif
-	cout << stSockAddrDst.sin_addr.s_addr << ", " << ntohs(stSockAddrDst.sin_port) << endl;
+	memset(ipAddr, 0, ipAddrLen);
+	inet_ntop(AF_INET, &stSockAddrDst.sin_addr.s_addr, ipAddr, ipAddrLen);
+	//cout << stSockAddrDst.sin_addr.s_addr << ", " << ntohs(stSockAddrDst.sin_port) << endl;
+	//cout << "ipAddr = " << ipAddr << endl;
 	if(-1 == ret)
 	{
 #ifdef _WIN64

@@ -23,8 +23,8 @@ AvtpVideoBase::AvtpVideoBase(bool bBind, const char *hostIP, const char *destIP,
 {
 	cout << "Call AvtpVideoBase::AvtpVideoBase()." << endl;
 	bRunning = false;
-	bConnected = false;
-	bAllowPacking = false;
+	bConnected = true;
+	bAllowPacking = true;
 	curFrameID = 0;
 	curFrameSize = 0;
 	pThSM = NULL;
@@ -46,8 +46,8 @@ AvtpVideoBase::~AvtpVideoBase()
 
 	stop();
 	bRunning = false;
-	bConnected = false;
-	bAllowPacking = false;
+	bConnected = true;
+	bAllowPacking = true;
 	curFrameID = 0;
 	curFrameSize = 0;
 	pThSM = NULL;
@@ -132,7 +132,7 @@ bool AvtpVideoBase::isConnected()
 	功能：	以阻塞形式将一帧视频数据送入传输协议中。客户端操作。
 	返回：	成功，返回一帧数据分成的片数量；失败，返回-1.
 */
-int AvtpVideoBase::sendVideoFrame(const void *const frameBuff, const unsigned int frameSize)
+int AvtpVideoBase::sendVideoFrame(const void *const frameBuff, const unsigned int frameSize, const char *ipAddr)
 {
 	//cout << "Call AvtpVideoBase::sendVideoFrame()." << endl;
 
@@ -157,7 +157,7 @@ int AvtpVideoBase::sendVideoFrame(const void *const frameBuff, const unsigned in
 	}
 
 	int ret = 0;
-	ret = sendSliceGroup(sliceNum);
+	ret = sendSliceGroup(sliceNum, ipAddr);
 	if(0 != ret)
 	{
 		cerr << "Fail to call AvtpVideoBase::sendSliceGroup()." << endl;
@@ -172,7 +172,7 @@ int AvtpVideoBase::sendVideoFrame(const void *const frameBuff, const unsigned in
 	功能：	以阻塞形式从视频传输协议中获取一帧数据。服务器操作。
 	返回：	成功，返回帧大小；失败，返回-1.
 */
-int AvtpVideoBase::recvVideoFrame(void *const frameBuff, const unsigned int frameSize)
+int AvtpVideoBase::recvVideoFrame(void *const frameBuff, const unsigned int frameSize, const char *ipAddr)
 {
 	//cout << "Call AvtpVideoBase::recvVideoFrame()." << endl;
 
@@ -206,7 +206,7 @@ int AvtpVideoBase::recvVideoFrame(void *const frameBuff, const unsigned int fram
 
 		videoSliceGroupClear();
 		curFrameID++;
-		reqNextFrm();
+		reqNextFrm(ipAddr);
 		lock.clear();	// 释放锁
 
 		break;
@@ -221,7 +221,7 @@ int AvtpVideoBase::recvVideoFrame(void *const frameBuff, const unsigned int fram
 	返回：	成功，返回0. 失败，返回非0.
 	注意：	为了避免打印信息过多，所以将若干次相同的打印信息合并为一次打印。
 */
-int AvtpVideoBase::requestHandShake()
+int AvtpVideoBase::requestHandShake(const char *ipAddr)
 {
 	static int sk = 0;
 	if(25 == ++sk)
@@ -233,10 +233,10 @@ int AvtpVideoBase::requestHandShake()
 	int ret = 0;
 	avtpCmd_t avtpCmd;
 	avtpCmd.avtpDataType = avtpDataType::TYPE_CMD_ReqHand;
-	ret = pUdpSocket->send(&avtpCmd, sizeof(avtpCmd_t));
+	ret = pUdpSocket->sendTo(&avtpCmd, sizeof(avtpCmd_t), ipAddr);
 	if(-1 == ret)
 	{
-		cerr << "Fail to call pUdpSocket->send() in AvtpVideoBase::requestHandShake()." << endl;
+		cerr << "Fail to call pUdpSocket->sendTo() in AvtpVideoBase::requestHandShake()." << endl;
 		return ret;
 	}
 
@@ -307,7 +307,7 @@ int AvtpVideoBase::waitHandShakeAgree(unsigned int waitTimeMs, unsigned int wait
 	返回：	返回0.
 	注意：	
 */
-int AvtpVideoBase::agreeHandShake()
+int AvtpVideoBase::agreeHandShake(const char *ipAddr)
 {
 	cout << "Call AvtpVideoBase::agreeHandShake()." << endl;
 
@@ -315,24 +315,24 @@ int AvtpVideoBase::agreeHandShake()
 	avtpCmd_t avtpCmd;
 	avtpCmd.avtpDataType = avtpDataType::TYPE_CMD_AgeHand;
 
-	ret = pUdpSocket->send(&avtpCmd, sizeof(avtpCmd_t));
+	ret = pUdpSocket->sendTo(&avtpCmd, sizeof(avtpCmd_t), ipAddr);
 	if(-1 == ret)
 	{
-		cerr << "Fail to call pUdpSocket->send() in AvtpVideoBase::agreeHandShake()." << endl;
+		cerr << "Fail to call pUdpSocket->sendTo() in AvtpVideoBase::agreeHandShake()." << endl;
 	}
 
 	// 担心响应包丢失，故而两次回应。
 	//this_thread::sleep_for(chrono::nanoseconds(1));	// 此处sleep, 导致slice 重复传输。
-	ret = pUdpSocket->send(&avtpCmd, sizeof(avtpCmd_t));
+	ret = pUdpSocket->sendTo(&avtpCmd, sizeof(avtpCmd_t), ipAddr);
 	if(-1 == ret)
 	{
-		cerr << "Fail to call pUdpSocket->send() in AvtpVideoBase::agreeHandShake()." << endl;
+		cerr << "Fail to call pUdpSocket->sendTo() in AvtpVideoBase::agreeHandShake()." << endl;
 	}
 
-	ret = pUdpSocket->send(&avtpCmd, sizeof(avtpCmd_t));
+	ret = pUdpSocket->sendTo(&avtpCmd, sizeof(avtpCmd_t), ipAddr);
 	if(-1 == ret)
 	{
-		cerr << "Fail to call pUdpSocket->send() in AvtpVideoBase::agreeHandShake()." << endl;
+		cerr << "Fail to call pUdpSocket->sendTo() in AvtpVideoBase::agreeHandShake()." << endl;
 	}
 
 	bConnected = true;
@@ -348,7 +348,7 @@ int AvtpVideoBase::agreeHandShake()
 			解决措施有二，1. 连续两次发送请求包，增加发送成功率；
 			2. 在一段时间未接收到数据时，再次主动发送请求包。
 */
-int AvtpVideoBase::reqNextFrm()
+int AvtpVideoBase::reqNextFrm(const char *ipAddr)
 {
 	//cout << "Call AvtpVideoBase::reqNextFrm()." << endl;
 	int ret = 0;
@@ -356,26 +356,26 @@ int AvtpVideoBase::reqNextFrm()
 	avtpCmd.avtpDataType = avtpDataType::TYPE_CMD_ReqNextFrm;
 	avtpCmd.avtpData[0] = curFrameID;
 
-	ret = pUdpSocket->send(&avtpCmd, sizeof(avtpCmd_t));
+	ret = pUdpSocket->sendTo(&avtpCmd, sizeof(avtpCmd_t), ipAddr);
 	if(-1 == ret)
 	{
-		cerr << "Fail to call pUdpSocket->send() in AvtpVideoBase::reqNextFrm()." << endl;
+		cerr << "Fail to call pUdpSocket->sendTo() in AvtpVideoBase::reqNextFrm()." << endl;
 		return -1;
 	}
 
 	// 实践证明，两次回应能够有效保障Client 收到报文。
 	//this_thread::sleep_for(chrono::microseconds(1));	// 此处sleep 导致某一帧重复传输。不清楚为什么不能sleep.
-	ret = pUdpSocket->send(&avtpCmd, sizeof(avtpCmd_t));
+	ret = pUdpSocket->sendTo(&avtpCmd, sizeof(avtpCmd_t), ipAddr);
 	if(-1 == ret)
 	{
-		cerr << "Fail to call pUdpSocket->send() in AvtpVideoBase::reqNextFrm()." << endl;
+		cerr << "Fail to call pUdpSocket->sendTo() in AvtpVideoBase::reqNextFrm()." << endl;
 		return -1;
 	}
 
-	ret = pUdpSocket->send(&avtpCmd, sizeof(avtpCmd_t));
+	ret = pUdpSocket->sendTo(&avtpCmd, sizeof(avtpCmd_t), ipAddr);
 	if(-1 == ret)
 	{
-		cerr << "Fail to call pUdpSocket->send() in AvtpVideoBase::reqNextFrm()." << endl;
+		cerr << "Fail to call pUdpSocket->sendTo() in AvtpVideoBase::reqNextFrm()." << endl;
 		return -1;
 	}
 
@@ -389,7 +389,7 @@ int AvtpVideoBase::reqNextFrm()
 	注意：	网络状况不良时，ACK 包容易丢失，导致客户端重复发送相同Slice 数据。
 			解决措施：连续两次发送ACK 包，增加发送成功率；
 */
-int AvtpVideoBase::answerSliceAck(const unsigned int frameID, const unsigned sliceSeq)
+int AvtpVideoBase::answerSliceAck(const unsigned int frameID, const unsigned sliceSeq, const char *ipAddr)
 {
 	//cout << "Call AvtpVideoBase::sendSliceAck()." << endl;
 	avtpCmd_t avtpCmd;
@@ -399,27 +399,27 @@ int AvtpVideoBase::answerSliceAck(const unsigned int frameID, const unsigned sli
 	avtpCmd.avtpData[1] = sliceSeq;
 
 	int ret = 0;
-	ret = pUdpSocket->send(&avtpCmd, sizeof(avtpCmd_t));
+	ret = pUdpSocket->sendTo(&avtpCmd, sizeof(avtpCmd_t), ipAddr);
 	if(-1 == ret)
 	{
-		cerr << "Fail to call pUdpSocket->send() in AvtpVideoBase::sendSliceAck()." << endl;
+		cerr << "Fail to call pUdpSocket->sendTo() in AvtpVideoBase::sendSliceAck()." << endl;
 		return -1;
 	}
 
 	// 相比重复传包，多传ACK 的效率更好。
 	// 实践证明，两次回应能够有效保障Client 收到报文。但也不要三次传ACK.
 	//this_thread::sleep_for(chrono::nanoseconds(1));	// 此处sleep, 导致slice 重复传输。不清楚为什么不能sleep 后再重传。
-	ret = pUdpSocket->send(&avtpCmd, sizeof(avtpCmd_t));
+	//ret = pUdpSocket->sendTo(&avtpCmd, sizeof(avtpCmd_t), ipAddr);
 	if(-1 == ret)
 	{
-		cerr << "Fail to call pUdpSocket->send() in AvtpVideoBase::sendSliceAck()." << endl;
+		cerr << "Fail to call pUdpSocket->sendTo() in AvtpVideoBase::sendSliceAck()." << endl;
 		return -1;
 	}
 #if 0
-	ret = pUdpSocket->send(&avtpCmd, sizeof(avtpCmd_t));
+	ret = pUdpSocket->sendTo(&avtpCmd, sizeof(avtpCmd_t), ipAddr);
 	if(-1 == ret)
 	{
-		cerr << "Fail to call pUdpSocket->send() in AvtpVideoBase::sendSliceAck()." << endl;
+		cerr << "Fail to call pUdpSocket->sendTo() in AvtpVideoBase::sendSliceAck()." << endl;
 		return -1;
 	}
 #endif
@@ -444,6 +444,7 @@ int AvtpVideoBase::packingFrame2Slice(const void *const frameBuff, const unsigne
 	while(lock.test_and_set(std::memory_order_acquire)); 	// 获得锁;	
 	for(i = 0; i < sliceNum; ++i)
 	{
+		cout << "i = " << i << endl;
 		videoSliceGroup.videoSliceGroup[i].avtpDataType = avtpDataType::TYPE_AV_VIDEO;
 		videoSliceGroup.videoSliceGroup[i].frameID = curFrameID;
 		videoSliceGroup.videoSliceGroup[i].frameSize = frameSize;
@@ -666,42 +667,34 @@ int AvtpVideoBase::videoSliceGroupIsEmpty()
 	返回：	返回0.
 	注意：
 */
-int AvtpVideoBase::sendSliceGroup(const unsigned int groupSize)
+int AvtpVideoBase::sendSliceGroup(const unsigned int groupSize, const char *ipAddr)
 {
 	//cout << "Call AvtpVideoBase::sendSliceGroup()." << endl;
 
 	bool bResend = false;
 	while(!videoSliceGroupIsEmpty())
 	{
-		if(!bConnected)
-		{
-			this_thread::sleep_for(chrono::microseconds(100));
-			continue;
-		}
-	
 		unsigned int i = 0;
 		while(lock.test_and_set(std::memory_order_acquire));		// 获得锁;
 		//cout << "for, group Size = " << groupSize << endl;
 		for(i = 0; i < groupSize; ++i)
 		{
-			if(bAllowPacking)	// 意味着允许打包下一帧数据，则跳出循环，放弃本次发送。
-			{
-				cout << "In AvtpVideoBase::sendSliceGroup(), 'bAllowPacking == true' means we can send next frame." << endl;
-				lock.clear();	// 释放锁
-				return 0;
-			}
+			//if(bAllowPacking)
+			//{
+			//	break;
+			//}
 		
 			if(avtpDataType::TYPE_AV_VIDEO == videoSliceGroup.videoSliceGroup[i].avtpDataType)
 			{
 				int ret = 0;
-				ret = pUdpSocket->send(videoSliceGroup.videoSliceGroup + i, sizeof(videoSlice_t));
+				ret = pUdpSocket->sendTo(videoSliceGroup.videoSliceGroup + i, sizeof(videoSlice_t), ipAddr);
 				if(-1 == ret)
 				{
-					cerr << "Fail to call pUdpSocket->send() in AvtpVideoBase::sendSliceGroup()." << endl;
+					cerr << "Fail to call pUdpSocket->sendTo() in AvtpVideoBase::sendSliceGroup()." << endl;
 				}
 
 				lossRateCalculator(bResend);
-				this_thread::sleep_for(chrono::microseconds(1));	// 间隔发送，减小丢包率。
+				//this_thread::sleep_for(chrono::microseconds(2));	// 间隔发送，减小丢包率。
 				if(bResend)
 				{
 					//cout << "i = " << i << ", size = " << videoSliceGroup.videoSliceGroup[i].frameSize << endl;
@@ -723,8 +716,12 @@ int AvtpVideoBase::sendSliceGroup(const unsigned int groupSize)
 		//this_thread::sleep_for(chrono::milliseconds(30));		// FPS = 1000 / 30 = 33.33
 		//this_thread::sleep_for(chrono::milliseconds(5));		// FPS = 1000 / 5 = 200.
 
+
 		bResend = true;
 	}
+	
+	curFrameID++;
+	bAllowPacking = true;
 	
 	//cout << "Call AvtpVideoBase::sendSliceGroup() end." << endl;
 	return 0;
@@ -746,7 +743,7 @@ double AvtpVideoBase::lossRateCalculator(bool bResend)
 	}
 
 	sendCnt++;
-	if(sendCnt > 1024)
+	if(sendCnt > 128)
 	{
 		lossRate = (float)((double)resendCnt / sendCnt);
 		sendCnt = 0;
@@ -765,140 +762,6 @@ double AvtpVideoBase::getLossRate() const
 {
 	return lossRate;
 }
-
-#if 0
-void *AvtpVideoBase::stateMachine(void *arg)
-{
-	while(bRunning)
-	{
-		if(!bConnected)
-		{
-			requestHandShake();
-			waitHandShakeAgree();
-			continue;
-		}
-
-		this_thread::sleep_for(chrono::microseconds(1));
-		
-		int ret = 0;
-		avtpCmd_t avtpCmd;
-		memset(&avtpCmd, 0, sizeof(avtpCmd_t));
-		#if 0	// old 无重连
-		ret = pUdpSocket->peek(&avtpCmd, sizeof(avtpCmd_t));
-		if(-1 == ret)
-		{
-			cerr << "Fail to call pUdpSocket->peek() in AvtpVideoBase::stateMachine()." << endl;
-			continue;
-		}
-		//cout << "Peek Data. Type = " << avtpCmd.avtpDataType << endl;
-		#endif	// new reconect
-		#if 1
-		static unsigned int sTimeOutCnt = 0;					// 超时次数。
-		const unsigned int timeOutMs = 100;						// 单次超时时长。
-		const unsigned int totalTimeOutMs = 5 * 1000;			// 总超时时长。
-
-		#if 1
-		ret = pUdpSocket->checkTimeOutMs(timeOutMs);			// n * 1000 = n MS.
-		if(1 == ret)
-		{
-			//cout << "Avtp client timeout." << endl;
-			sTimeOutCnt++;
-			if(timeOutMs * sTimeOutCnt > totalTimeOutMs)		// 超时重连
-			{
-				cerr << "timeOutMs * sTimeOutCnt > totalTimeOutMs. bConnected = 0." << endl;
-				bConnected = false;
-				sTimeOutCnt = 0;
-				curFrameID = 0;
-				continue;
-			}
-
-			//continue;
-		}
-		else
-		{	// 未超时则清空计数器，并继续执行剩余业务逻辑。
-			//cout << "Reset timeout counter." << endl;
-			sTimeOutCnt = 0;
-		}
-		#endif
-		#endif
-
-		ret = pUdpSocket->peek(&avtpCmd, sizeof(avtpCmd_t));
-		if(-1 == ret)
-		{
-			//cerr << "Fail to call pUdpSocket->peek() in AvtpVideoBase::stateMachine()." << endl;
-			continue;
-		}
-		//cout << "Peek Data. Type = " << avtpCmd.avtpDataType << endl;
-		
-		switch(avtpCmd.avtpDataType)
-		{
-			case avtpDataType::TYPE_CMD_ReqNextFrm:
-			{
-				// 若以阻塞方式接收，可能导致server 掉线后，client 一直阻塞。
-				ret = pUdpSocket->recvNonblock(&avtpCmd, sizeof(avtpCmd_t));
-				if(-1 == ret)
-				{
-					cerr << "Fail to call pUdpSocket->recvNonblock() in AvtpVideoBase::stateMachine()." << endl;
-					break;
-				}
-				
-				if(avtpCmd.avtpData[0] == curFrameID)
-				{
-					#if 0
-					cout << "avtpCmd.avtpData[0] == curFrameID" << endl;
-					//videoSliceGroupClear();
-					#endif
-				}
-				else
-				{
-					//cout << "avtpCmd.avtpData[0] != curFrameID, avtpData[0] = " << avtpCmd.avtpData[0] << endl;
-					//videoSliceGroupClear();
-					curFrameID = avtpCmd.avtpData[0];
-					bAllowPacking = true;
-				}
-				break;
-			}
-			case avtpDataType::TYPE_CMD_ACK:
-			{
-				ret = pUdpSocket->recvNonblock(&avtpCmd, sizeof(avtpCmd_t));
-				if(-1 == ret)
-				{
-					cerr << "Fail to call pUdpSocket->recvNonblock() in AvtpVideoBase::stateMachine()." << endl;
-					break;
-				}
-
-				#if 0
-				cout << "avtpCmd.avtpDataType = " << avtpCmd.avtpDataType << endl;
-				cout << "avtpCmd.avtpData[0] = " << avtpCmd.avtpData[0] << endl;
-				cout << "avtpCmd.avtpData[1] = " << avtpCmd.avtpData[1] << endl;
-				cout << "avtpCmd.avtpData[2] = " << avtpCmd.avtpData[2] << endl;
-				#endif
-				
-				//if(avtpCmd.avtpData[0] == curFrameID)
-				{
-					unsigned int sliceSeq = 0;
-					unsigned int frameID = 0;
-					frameID = avtpCmd.avtpData[0];
-					sliceSeq = avtpCmd.avtpData[1];
-					videoSliceClear(frameID, sliceSeq);
-				}
-				//else
-				{
-					// 丢弃。
-				}
-				break;
-			}
-
-			default:
-				//cerr << "Error in AvtpVideoBase::stateMachine(). AVTP_TYPE is unrecognized. TYPE = " << avtpCmd.avtpDataType << endl;
-				pUdpSocket->relinquish();
-				break;
-		}
-	}
-
-	return NULL;
-}
-#endif
 
 /*
 	功能：	启用状态机的线程。

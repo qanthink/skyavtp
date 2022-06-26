@@ -18,6 +18,7 @@ public:
 	AvtpVideoClient(const char *serverIP);
 	~AvtpVideoClient();
 
+	double getLossRate();
 	int changeFps10s(unsigned int fps);
 	int sendVideoFrame(const void *frameBuf, const unsigned int frameBufLen);
 
@@ -36,11 +37,15 @@ private:
 	int videoSliceGroupClear();
 	int pushFrameIntoGroup(const void *frameBuf, const unsigned int frameBufLen);
 
-	bool bRunning = false;
+	bool bRunning = false;				// 运行状态
 	unsigned int mFps10s = 100;			// 10 秒内传输的帧数。
 	unsigned int mTimeOutMs = 5000;		// 超时时间。
 	unsigned int mFrameID = 0;			// 帧ID.
 	videoSliceGroup_t videoSliceGroup;	// video slice group.
+
+	unsigned int sendCnt = 0;
+	unsigned int resendCnt = 0;
+	double lossRate = 0.0;
 	
 	std::mutex mMtx;					// 互斥量。
 	//std::condition_variable mCondVar;

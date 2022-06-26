@@ -177,23 +177,34 @@ int AvtpVideoClient::sendVideoFrame(const void *frameBuf, const unsigned int fra
 	sliceNum = pushFrameIntoGroup(frameBuf, frameBufLen);
 
 	int i = 0;
+	bool bFirstSend = true;
 	do{
 		for(i = 0; i < sliceNum; ++i)
 		{
 			mMtx.lock();
 			if(avtpDataType::TYPE_AV_VIDEO == videoSliceGroup.videoSlice[i].avtpDataType)
 			{
-				cout << "send. " << i << endl;
+				//cout << "send. " << i << endl;
 				pUdpClient->send(videoSliceGroup.videoSlice + i, sizeof(videoSlice_t));
+				++sendCnt;
+				bFirstSend ? 0 : ++resendCnt;
 			}
 			mMtx.unlock();
 			//this_thread::sleep_for(chrono::nanoseconds(1));
 		}
 
+		bFirstSend = false;
 		this_thread::sleep_for(chrono::milliseconds(10000 / mFps10s));
+		//cout << "mFps10s = " << mFps10s << endl;
 	}while(!isGroupEmpty(sliceNum));
 	
 	mFrameID++;
+	if(sendCnt > 50)
+	{
+		lossRate = (double)resendCnt / sendCnt;
+		resendCnt = 0;
+		sendCnt = 0;
+	}
 
 	//cout << "Call AvtpVideoClient::sendVideoFrame() end." << endl;
 	return 0;
@@ -209,7 +220,7 @@ bool AvtpVideoClient::isGroupEmpty(const unsigned int sliceNum)
 		if(avtpDataType::TYPE_AV_VIDEO == videoSliceGroup.videoSlice[i].avtpDataType)
 		{
 			mMtx.unlock();
-			cout << "Call AvtpVideoClient::isGroupEmpty() end. false" << endl;
+			//cout << "Call AvtpVideoClient::isGroupEmpty() end. false" << endl;
 			return false;
 		}
 		mMtx.unlock();
@@ -296,7 +307,21 @@ int AvtpVideoClient::changeFps10s(unsigned int fps10s)
 	{
 		mFps10s = 1200;
 	}
+	else
+	{
+		mFps10s = fps10s;
+	}
 
 	return mFps10s;
+}
+
+/*
+	功能：	获取丢包率。
+	返回：	
+	注意：	
+*/
+double AvtpVideoClient::getLossRate()
+{
+	return lossRate;
 }
 

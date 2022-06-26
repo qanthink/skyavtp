@@ -6,29 +6,78 @@ xxx 版权所有。
 
 #pragma once
 
-#include "avtp.h"
+#include "udp_server.h"
+#include "avtp_datatype.h"
 
-/* 通过继承抽象类形成Server */
-class AvtpVideoServer : public AvtpVideoBase
+#include <memory>
+#include <map>
+#include <mutex>
+#include <condition_variable>
+
+
+class ClientProc
 {
 public:
-	/* 借助父类构造子类 */
-	AvtpVideoServer(const char *hostIP, const char *destIP, const unsigned short port) : AvtpVideoBase(true, hostIP, destIP, port){}
+	ClientProc();
+	int create();
+	~ClientProc();
+
+	int push(const videoSlice_t *pVideoSlice);
+	int pop(void *frameBuf, const unsigned int frameBufLen);
+	bool isGroupFull() const;
+
 private:
-	/* 子类必须重写纯虚函数 */
-	void *stateMachine(void *arg);
+	std::atomic_flag mLock = ATOMIC_FLAG_INIT;		// 原子对象，保障原子操作。
+	std::mutex mMtx;
+	std::condition_variable mCondVar;
+	
+	// 数据处理线程
+	int recvHandler();
+	static int thRecvHandler(void *pThis);
+	std::shared_ptr<std::thread> pThRecvHandler = NULL;
+
+	videoSliceGroup_t videoSliceGroup;
 };
 
-/*
-	WSAError:
-	10035 - WSAEWOULDBLOCK
-		资源暂时不可用。对非阻塞套接字来说，如果请求操作不能立即执行的话，通常会返回这个错误。
-		比如说，在一个非阻塞套接字上调用connect，就会返回这个错误。因为连接请求不能立即执行。
+class clientInf_t{
+public:
+	clientInf_t(){};
+	unsigned int frameIdRequest;
+	videoSliceGroup_t videoSliceGroup;
+	ClientProc clientProc;
+	std::atomic_flag mLock;
+private:
+};
 
-	10040 - WSAEMSGSIZE
-		消息过长。这个错误的含义很多。如果在一个数据报套接字上发送一条消息，
-		这条消息对内部缓冲区而言太大的话，就会产生这个错误。
-		再比如，由于网络自身的限制，使一条消息过长，也会产生这个错误。
-		最后，如果收到数据报之后，缓冲区太小，不能接收消息时，也会产生这个错误。
-*/
+class AvtpVideoServer
+{
+public:
+	AvtpVideoServer(const char *serverIp);
+
+	bool addClient(std::string clientIp);
+	bool deleteClient(std::string clientIp);
+	bool queryClient(std::string clientIp);
+
+	int recvVideoFrame(std::string clientIp, void *frameBuf, const unsigned int frameBufSize);
+
+private:
+	std::shared_ptr<UdpServer> pUdpServer = NULL;			// UDP 服务器
+	const unsigned short avtpPort = AVTP_PORT;				// 端口号
+	std::map<std::string, clientInf_t> clientPool;	// 客户端IP 池。
+	std::map<std::string, std::shared_ptr<ClientProc>> clientPool2;	// 客户端IP 池。
+	unsigned int mFrameID = 0;
+	
+	// 服务器接收线程
+	int listening();
+	static int thListening(void *pThis);
+	std::shared_ptr<std::thread> pThServerRecv = NULL;
+	std::atomic_flag mLock = ATOMIC_FLAG_INIT;				// 原子对象，保障原子操作。
+
+	int pushSliceIntoGroup(std::string clientIp, const videoSlice_t *pVideoSlice);
+	int popFrameFromGrup(std::string clientIp, void *frameBuf, const unsigned int frameBufSize);
+	int clearGroup(std::string clientIp);
+	bool isGroupFull(std::string clientIp);
+	int requestNxtFrame(std::string clientIp, unsigned int frameID);
+};
+
 

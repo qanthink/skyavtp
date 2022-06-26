@@ -55,7 +55,6 @@ int AvtpVideoClient::listening()
 	fd_set fdset;
 	FD_ZERO(&fdset);
 	FD_SET(sfd, &fdset);
-	FD_SET(sfd, &fdset);
 
 	// 设置超时时间。
 	struct timeval stTimeOut;
@@ -64,12 +63,11 @@ int AvtpVideoClient::listening()
 	// 避免在循环体内初始化数据，避免时间开销。
 	int ret = 0;
 	avtpCmd_t avtpCmd;
-	struct sockaddr_in stAddrClient;
-	memset(&stAddrClient, 0, sizeof(struct sockaddr));
 	
 	while(bRunning)
 	{
 		// step1.1 设置监听的套接字
+		FD_SET(sfd, &fdset);
 		// step1.2 设置超时时长
 		stTimeOut.tv_sec = mTimeOutMs / 1000;
 		stTimeOut.tv_usec = mTimeOutMs % 1000 * 1000; // N * 1000 = N ms
@@ -92,7 +90,6 @@ int AvtpVideoClient::listening()
 
 		// step2 接收数据。
 		memset(&avtpCmd, 0, sizeof(avtpCmd_t));
-		//memset(&stAddrClient, 0, sizeof(struct sockaddr));
 		ret = pUdpClient->recv(&avtpCmd, sizeof(avtpCmd_t));
 		if(-1 == ret)
 		{
@@ -114,7 +111,7 @@ int AvtpVideoClient::listening()
 				unsigned int seqence = 0;
 				frameID = avtpCmd.avtpData[0];
 				seqence = avtpCmd.avtpData[1];
-				cout << "avtpDataType: " << avtpCmd.avtpDataType << ", frame ID: " << frameID << ", sequence: " << seqence << endl;
+				//cout << "avtpDataType: " << avtpCmd.avtpDataType << ", frame ID: " << frameID << ", sequence: " << seqence << endl;
 				videoSliceClear(frameID, seqence);
 				break;
 			}
@@ -217,7 +214,7 @@ bool AvtpVideoClient::isGroupEmpty(const unsigned int sliceNum)
 		}
 		mMtx.unlock();
 	}
-	cout << "Call AvtpVideoClient::isGroupEmpty() end. true" << endl;
+	//cout << "Call AvtpVideoClient::isGroupEmpty() end. true" << endl;
 	return true;
 }
 

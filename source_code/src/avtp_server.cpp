@@ -133,7 +133,6 @@ int AvtpVideoServer::listening()
 	sfd = pUdpServer->getSocketFd();
 	fd_set fdset;
 	FD_ZERO(&fdset);
-	FD_SET(sfd, &fdset);
 	
 	// 设置超时时长
 	struct timeval stTimeOut;
@@ -143,7 +142,6 @@ int AvtpVideoServer::listening()
 	avtpCmd_t avtpCmd;
 	videoSlice_t videoSlice;
 	struct sockaddr_in stAddrClient;
-	memset(&stAddrClient, 0, sizeof(struct sockaddr));
 
 	int ret = 0;
 	const unsigned int ipLen = 16;
@@ -152,6 +150,7 @@ int AvtpVideoServer::listening()
 	while(bRunning)
 	{
 		// step1.1 设置监听的套接字
+		FD_SET(sfd, &fdset);
 		// step1.2 设置超时时长
 		stTimeOut.tv_sec = mTimeOutMs / 1000;
 		stTimeOut.tv_usec = mTimeOutMs % 1000 * 1000; // N * 1000 = N ms
@@ -174,14 +173,14 @@ int AvtpVideoServer::listening()
 
 		// step2 接收数据。
 		memset(&videoSlice, 0, sizeof(videoSlice_t));
-		//memset(&stAddrClient, 0, sizeof(struct sockaddr));
+		memset(&stAddrClient, 0, sizeof(struct sockaddr));		// 必须进行memset 以便更新client 信息。避免掉线不能重连。
 		ret = pUdpServer->recv(&videoSlice, sizeof(videoSlice_t), &stAddrClient);
 		if(-1 == ret)
 		{
 			cerr << "Fail to call pUdpServer->recv() in AvtpVideoServer::listening()." << endl;
 			continue;
 		}
-		else if(ret < sizeof(videoSlice_t))
+		else if(ret < sizeof(avtpCmd_t))
 		{
 			cout << "In AvtpVideoServer::listening(). Received data length is not as expected." << endl;
 			continue;

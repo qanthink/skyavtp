@@ -109,9 +109,9 @@ public:
 */
 class videoSliceGroup_t{
 public:
-	const static unsigned int h26xMaxFrameBytes = 512 * 1024;
+	const static unsigned int h26xFrameMaxBytes = 128 * 1024;	// FHD 32KB, UHD 128KB.
 	//const static unsigned int groupMaxSize = ceil((double)h26xMaxFrameBytes / videoSlice_t::sliceBufMaxSize);	// 取整
-	const static unsigned int groupMaxSize = h26xMaxFrameBytes / videoSlice_t::sliceBufMaxSize + 1;
+	const static unsigned int groupMaxSize = h26xFrameMaxBytes / videoSlice_t::sliceBufMaxSize + 1;
 
 public:
 	videoSlice_t videoSlice[groupMaxSize];

@@ -7,10 +7,9 @@
 /*
 */
 
-#include "avtp_client.h"
-
 #include <iostream>
 #include <string.h>
+#include "avtp_client.h"
 
 using namespace std;
 

@@ -20,273 +20,211 @@ using namespace std;
 AvtpVideoServer::AvtpVideoServer(const char * serverIP)
 {
 	cout << "Call AvtpVideoServer::AvtpVideoServer()." << endl;
+	
+	bRunning = true;
 	pUdpServer = make_shared<UdpServer>(serverIP, avtpPort);
 	pThServerRecv = make_shared<thread>(thListening, this);
+	
 	cout << "Call AvtpVideoServer::AvtpVideoServer() end." << endl;
 }
 
+AvtpVideoServer::~AvtpVideoServer()
+{
+	cout << "Call AvtpVideoServer::~AvtpVideoServer()." << endl;
+	
+	bRunning = false;
+	
+	if(!pThServerRecv)
+	{
+		pThServerRecv->join();
+		pThServerRecv = NULL;
+	}
+
+	pUdpServer = NULL;
+	cout << "Call AvtpVideoServer::~AvtpVideoServer() end." << endl;
+}
+
 /*
-	功能：	发送视频帧。
+	功能：	增加客户端。
+	返回：	成功返回true, 失败返回false.
+	注意：	如果客户端已经存在，则会添加失败。
+*/
+bool AvtpVideoServer::addClient(string clientIP)
+{
+	cout << "Call AvtpVideoServer::addClient()." << endl;
+
+	mMtx.lock(); 	// 获得锁;
+	pair<map<string, shared_ptr<ClientProc>>::iterator, bool> ret;
+	shared_ptr<ClientProc> pClientProc(new ClientProc);
+	ret = clientPool.insert(make_pair(clientIP, pClientProc));
+	mMtx.unlock();
+
+	return true;
+}
+
+/*
+	功能：	删除客户端。
+	返回：	成功返回true, 失败返回false.
+	注意：	如果客户端不存在，则会删除失败。
+*/
+bool AvtpVideoServer::deleteClient(string clientIP)
+{
+	mMtx.lock(); 	// 获得锁;
+	videoSliceGroup_t videoSliceGroup;
+	clientPool.erase(clientIP);
+	mMtx.unlock();
+
+	return 0;
+}
+
+/*
+	功能：	查询客户端。
+	返回：	存在返回true, 不存在返回false.
+	注意：	
+*/
+bool AvtpVideoServer::queryClient(string clientIP)
+{
+	//cout << "Call AvtpVideoServer::queryClient()." << endl;
+
+	mMtx.lock(); 	// 获得锁;
+	map<string , shared_ptr<ClientProc>>::iterator it;
+	it = clientPool.find(clientIP);
+	mMtx.unlock();
+	
+	if(clientPool.end() == it)
+	{
+		return false;
+	}
+	else
+	{
+		return true;
+	}
+}
+
+/*
+	功能：	接收视频帧。
 	注意：	
 */
 int AvtpVideoServer::recvVideoFrame(string clientIp, void *frameBuf, const unsigned int frameBufSize)
 {
 	//cout << "Call AvtpVideoServer::recvVideoFrame()." << endl;
 
-	//requestNxtFrame(clientIp, clientPool[clientIp].frameIdRequest);
-	//requestNxtFrame(clientIp, clientPool[clientIp].frameIdRequest);
-
 	int frameRealSize = 0;
-	//while(true)
-	{
-		//if(!isGroupFull(clientIp))
-		{
-			//this_thread::sleep_for(chrono::nanoseconds(1));
-			//continue;
-		}
-
-		int i = 0;
-		for(i = 0; i < 5; ++i)
-		{
-			//cout << "frameID = " << clientPool[clientIp].videoSliceGroup.videoSlice[i].frameID << ", seq: " << clientPool[clientIp].videoSliceGroup.videoSlice[i].frameID
-		}
-		
-		//frameRealSize = popFrameFromGrup(clientIp, frameBuf, frameBufSize);
-		frameRealSize = clientPool2[clientIp]->pop(frameBuf, frameBufSize);
-		//clearGroup(clientIp);
-		//++clientPool[clientIp].frameIdRequest;
-		//mLock.clear();
-		//break;
-	}
+	frameRealSize = clientPool[clientIp]->popFrame(frameBuf, frameBufSize);
 	
 	//cout << "Call AvtpVideoServer::recvVideoFrame() end." << endl;
 	return frameRealSize;
 }
-
-bool AvtpVideoServer::addClient(string clientIP)
-{
-	cout << "Call AvtpVideoServer::addClient()." << endl;
-
-	while(mLock.test_and_set()); 	// 获得锁;
-	shared_ptr<ClientProc> pClientProc(new ClientProc);
-	pair<map<string, shared_ptr<ClientProc>>::iterator, bool> ret;
-	ret = clientPool2.insert(make_pair(clientIP, pClientProc));
-	pClientProc->create();
-	mLock.clear();
-
-	#if 0
-	if(false == ret.second)
-	{
-		cerr << "Fail to add client." << endl;
-		return false;
-	}
-	else
-	{
-		return true;
-	}
-	#endif
-	return true;
-}
-
-bool AvtpVideoServer::deleteClient(string clientIP)
-{
-	while(mLock.test_and_set()); 	// 获得锁;
-	videoSliceGroup_t videoSliceGroup;
-	clientPool.erase(clientIP);
-	mLock.clear();
-
-	return 0;
-}
-
-bool AvtpVideoServer::queryClient(string clientIP)
-{
-	//cout << "Call AvtpVideoServer::queryClient()." << endl;
-
-	while(mLock.test_and_set()); 	// 获得锁;
-	map<string , shared_ptr<ClientProc>>::iterator it;
-	it = clientPool2.find(clientIP);
-	mLock.clear();
-	
-	if(clientPool2.end() == it)
-	{
-		return false;
-	}
-	else
-	{
-		return true;
-	}
-}
-
-int AvtpVideoServer::pushSliceIntoGroup(string clientIp, const videoSlice_t *pVideoSlice)
-{
-	cout << "Call AvtpVideoServer::pushSliceIntoGroup()." << endl;
-	
-	while(mLock.test_and_set()); 	// 获得锁;
-	clientPool[clientIp].videoSliceGroup.videoSlice[pVideoSlice->sliceSeq] = *pVideoSlice;
-	mLock.clear();
-
-	cout << "Call AvtpVideoServer::pushSliceIntoGroup() end." << endl;
-	return 0;
-}
-
-int AvtpVideoServer::popFrameFromGrup(string clientIp, void *frameBuf, const unsigned int frameSzie)
-{
-	//cout << "Call AvtpVideoServer::popFrameFromGrup()." << endl;
-	
-	//while(mLock.test_and_set()); 	// 获得锁;
-	int i = 0;
-	unsigned int cpyBytes = 0;
-	const videoSlice_t *pVideoSlice = NULL;
-	pVideoSlice = clientPool[clientIp].videoSliceGroup.videoSlice;
-	for(i = 0; i < videoSliceGroup_t::groupMaxSize; ++i)
-	{
-		memcpy(frameBuf + cpyBytes, pVideoSlice->sliceBuf, pVideoSlice->sliceSize);
-		cpyBytes += pVideoSlice->sliceSize;
-		++pVideoSlice;
-	}
-	//mLock.clear();
-
-	//cout << "Call AvtpVideoServer::popFrameFromGrup() end." << endl;
-	return cpyBytes;
-}
-
-int AvtpVideoServer::clearGroup(std::string clientIp)
-{
-	//while(mLock.test_and_set()); 	// 获得锁;
-	memset(&clientPool[clientIp], 0, sizeof(videoSliceGroup_t));
-	//mLock.clear();
-	return 0;
-}
-
-int AvtpVideoServer::requestNxtFrame(string clientIp, unsigned int frameID)
-{
-	avtpCmd_t avtpCmd;
-	memset(&avtpCmd, 0, sizeof(avtpCmd_t));
-	avtpCmd.avtpDataType = avtpDataType::TYPE_CMD_ReqNextFrm;
-	avtpCmd.avtpData[0] = clientPool[clientIp].frameIdRequest;
-
-	struct sockaddr_in stAddrClient;
-	memset(&stAddrClient, 0, sizeof(struct sockaddr_in));
-	stAddrClient.sin_family = AF_INET;
-	stAddrClient.sin_port = htons(AVTP_PORT);
-	stAddrClient.sin_addr.s_addr = inet_addr(clientIp.c_str());
-
-	pUdpServer->send(&avtpCmd, sizeof(avtpCmd_t), &stAddrClient);
-
-	return 0;
-}
-
-bool AvtpVideoServer::isGroupFull(std::string clientIp)
-{
-	//while(mLock.test_and_set()); 	// 获得锁;
-	videoSlice_t *pSlice = NULL;
-	pSlice = clientPool[clientIp].videoSliceGroup.videoSlice;
-	if(0 == pSlice->frameSize)
-	{
-		//mLock.clear();
-		return false;
-	}
-
-	int i = 0;
-	unsigned int frameSize = 0;
-	for(i = 0; i < videoSliceGroup_t::groupMaxSize; ++i)
-	{
-		frameSize += pSlice->sliceSize;
-		++pSlice;
-	}
-
-	if(clientPool[clientIp].videoSliceGroup.videoSlice[0].frameSize == frameSize)
-	{
-		//mLock.clear();
-		return true;
-	}
-	else
-	{
-		//mLock.clear();
-		return false;
-	}
-}
-
 
 int AvtpVideoServer::thListening(void *pThis)
 {
 	return ((AvtpVideoServer *)pThis)->listening();
 }
 
+/*
+	功能：	服务器接收线程，用于监听客户端的消息。
+	返回：	返回0.
+	注意：	
+*/
 int AvtpVideoServer::listening()
 {
+	// 设置要监听的套接字。
 	int sfd = 0;
 	sfd = pUdpServer->getSocketFd();
+	fd_set fdset;
+	FD_ZERO(&fdset);
+	FD_SET(sfd, &fdset);
+	
+	// 设置超时时长
+	struct timeval stTimeOut;
+	memset(&stTimeOut, 0, sizeof(struct timeval));
 
-	sleep(0.5);
-	while(true)
+	// 避免在循环体内初始化数据，避免时间开销。
+	avtpCmd_t avtpCmd;
+	videoSlice_t videoSlice;
+	struct sockaddr_in stAddrClient;
+	memset(&stAddrClient, 0, sizeof(struct sockaddr));
+
+	int ret = 0;
+	const unsigned int ipLen = 16;
+	char clientIp[ipLen] = {0};
+
+	while(bRunning)
 	{
-		fd_set fdset;
-		FD_ZERO(&fdset);
-		FD_SET(sfd, &fdset);
-
-		// 监听套接字，等待客户端数据到来。
-		int ret = 0;
-		ret = select(sfd + 1, &fdset, NULL, NULL, NULL);
+		// step1.1 设置监听的套接字
+		// step1.2 设置超时时长
+		stTimeOut.tv_sec = mTimeOutMs / 1000;
+		stTimeOut.tv_usec = mTimeOutMs % 1000 * 1000; // N * 1000 = N ms
+		// step1.3 监听套接字，等待客户端数据到来。
+		ret = select(sfd + 1, &fdset, NULL, NULL, &stTimeOut);
 		if(-1 == ret)
 		{
-			cerr << "Fail to call select(2), " << strerror(errno) << endl;
-			return -3;
+			cerr << "In AvtpVideoServer::listening(). Fail to call select(2), " << strerror(errno) << endl;
+			continue;
 		}
 		else if(0 == ret)
 		{
-			cout << "select(2) timeout!" << endl;
-			return -4;
+			cout << "In AvtpVideoServer::listening(). Timeout!" << endl;
+			continue;
 		}
 		else
 		{
 			// do next;
 		}
 
-		// 接收数据。
-		videoSlice_t videoSlice;
+		// step2 接收数据。
 		memset(&videoSlice, 0, sizeof(videoSlice_t));
-		struct sockaddr_in stAddrClient;
-		memset(&stAddrClient, 0, sizeof(struct sockaddr));
-
+		//memset(&stAddrClient, 0, sizeof(struct sockaddr));
 		ret = pUdpServer->recv(&videoSlice, sizeof(videoSlice_t), &stAddrClient);
-		if(0 == ret)	// 需要完善异常处理。
+		if(-1 == ret)
 		{
-			
+			cerr << "Fail to call pUdpServer->recv() in AvtpVideoServer::listening()." << endl;
+			continue;
+		}
+		else if(ret < sizeof(videoSlice_t))
+		{
+			cout << "In AvtpVideoServer::listening(). Received data length is not as expected." << endl;
+			continue;
 		}
 
-		// 从数据中，解析IP 并查询是否在IP 池中。
-		const unsigned int ipLen = 16;
-		char clientIp[ipLen] = {0};
+		// 处理数据。要尽可能快，保障最短时间内再次调用select. 避免UDP 数据堆积导致丢包。
+		// step3.1 解析IP 并查询是否在IP 池中。
 		strcpy(clientIp, inet_ntoa(stAddrClient.sin_addr));
 		//cout << "client IP = " << clientIp << endl;
 
 		bool bInClientPool = false;
-		//bInClientPool = queryClient(clientIp);
+		bInClientPool = queryClient(clientIp);
 		if(!bInClientPool)
 		{
-			//cerr << "This ip is not in client pool: " << clientIp << endl;
-			//continue;
+			cerr << "This ip is not in client pool: " << clientIp << endl;
+			continue;
 		}
 
-		// 从数据中，解析数据头。
-		// 如果是视频数据，则回复ACK, 并放入本地缓存。
-		if(avtpDataType::TYPE_AV_VIDEO == videoSlice.avtpDataType)
+		// step3.2 从数据中，解析数据头。
+		// 如果是视频数据，则回复ACK, 并放入内存缓存。
+		switch(videoSlice.avtpDataType)
 		{
-			//cout << "IP: " << clientIp << ", freame ID = " << videoSlice.frameID << ", seqence = " << videoSlice.sliceSeq << endl;
-			//cout << "frame len = " << videoSlice.frameSize << ", slice len = " << videoSlice.sliceSize << endl;
-			avtpCmd_t avtpCmd;
-			memset(&avtpCmd, 0, sizeof(avtpCmd_t));
-			avtpCmd.avtpDataType = avtpDataType::TYPE_CMD_ACK;
-			avtpCmd.avtpData[0] = videoSlice.frameID;
-			avtpCmd.avtpData[1] = videoSlice.sliceSeq;
-			pUdpServer->send(&avtpCmd, sizeof(avtpCmd_t), &stAddrClient);
-			//pUdpServer->send(&avtpCmd, sizeof(avtpCmd_t), &stAddrClient);
+			case avtpDataType::TYPE_AV_VIDEO:
+			{
+				//cout << "IP: " << clientIp << ", freame ID = " << videoSlice.frameID << ", seqence = " << videoSlice.sliceSeq << endl;
+				//cout << "frame len = " << videoSlice.frameSize << ", slice len = " << videoSlice.sliceSize << endl;
+				memset(&avtpCmd, 0, sizeof(avtpCmd_t));
+				avtpCmd.avtpDataType = avtpDataType::TYPE_CMD_ACK;
+				avtpCmd.avtpData[0] = videoSlice.frameID;
+				avtpCmd.avtpData[1] = videoSlice.sliceSeq;
+				pUdpServer->send(&avtpCmd, sizeof(avtpCmd_t), &stAddrClient);
+				clientPool[clientIp]->pushSlice(&videoSlice);
+				break;
+			}
+			default:
+			{
+				cout << "In AvtpVideoServer::listening(). Received bad date." << endl;
+				break;
+			}
 		}
-
-		clientPool2[clientIp]->push(&videoSlice);
-		//pushSliceIntoGroup(clientIp, &videoSlice);
 	}
+
+	return 0;
 }
 
 ClientProc::ClientProc()
@@ -297,71 +235,35 @@ ClientProc::ClientProc()
 
 ClientProc::~ClientProc()
 {
-	
+	cout << "Call AvtpVideoServer::~ClientProc()." << endl;
+	cout << "Call AvtpVideoServer::~ClientProc() end." << endl;
 }
 
-int ClientProc::create()
+/*
+	功能：	将Slicen 数据放入Group 中。
+	返回：
+	注意：	slice, group 概念参考AVTP 数据类型。
+*/
+int ClientProc::pushSlice(const videoSlice_t *pVideoSlice)
 {
-	cout << "Call ClientProc::create()." << endl;
-	pThRecvHandler = make_shared<thread>(thRecvHandler, this);
-	cout << "Call ClientProc::create() end." << endl;
-	return 0;
-}
-
-int ClientProc::thRecvHandler(void *pThis)
-{
-	return ((ClientProc *)pThis)->recvHandler();
-}
-
-int ClientProc::recvHandler()
-{
-	cout << "Call ClientProc::thRecvHandler()." << endl;
-	while(true)
-	{
-		//cout << "a" << endl;
-		this_thread::sleep_for(chrono::seconds(1));
-	}
-	//while(mLock.test_and_set()); 	// 获得锁;
-	//mLock.clear();
-	cout << "Call ClientProc::thRecvHandler() end." << endl;
-	return 0;
-}
-
-int ClientProc::push(const videoSlice_t *pVideoSlice)
-{
-	//cout << "Call ClientProc::push()." << endl;
-	#if 0
-	while(mLock.test_and_set()); 	// 获得锁;
-	videoSliceGroup.videoSlice[pVideoSlice->sliceSeq] = *pVideoSlice;
-	mLock.clear();
-	#else
+	//cout << "Call ClientProc::pushSlice()." << endl;
 	unique_lock<mutex> lock(mMtx);
 	videoSliceGroup.videoSlice[pVideoSlice->sliceSeq] = *pVideoSlice;
 	lock.unlock();
 	mCondVar.notify_one();
-	#endif
 
-	//cout << "Call ClientProc::push() end." << endl;
+	//cout << "Call ClientProc::pushSlice() end." << endl;
 	return 0;
 }
 
-int ClientProc::pop(void *frameBuf, const unsigned int frameBufLen)
+/*
+	功能：	将Frame 数据从Group 取出。
+	返回：
+	注意：	Frame, group 概念参考AVTP 数据类型。
+*/
+int ClientProc::popFrame(void *frameBuf, const unsigned int frameBufLen)
 {
-	//cout << "Call ClientProc::pop()." << endl;
-#if 0
-	while(mLock.test_and_set());	// 获得锁;
-	int i = 0;
-	unsigned int cpyBytes = 0;
-	const videoSlice_t *pVideoSlice = NULL;
-	pVideoSlice = videoSliceGroup.videoSlice;
-	for(i = 0; i < videoSliceGroup_t::groupMaxSize; ++i)
-	{
-		memcpy(frameBuf + cpyBytes, pVideoSlice->sliceBuf, pVideoSlice->sliceSize);
-		cpyBytes += pVideoSlice->sliceSize;
-		++pVideoSlice;
-	}
-	mLock.clear();
-#else
+	//cout << "Call ClientProc::popFrame()." << endl;
 	unique_lock<mutex> lock(mMtx);
 	while(!isGroupFull())	// 队列不满则循环等待。
 	{
@@ -381,11 +283,16 @@ int ClientProc::pop(void *frameBuf, const unsigned int frameBufLen)
 
 	memset(&videoSliceGroup, 0, sizeof(videoSliceGroup_t));
 	lock.unlock();
-#endif
-	//cout << "Call ClientProc::pop() end." << endl;
+
+	//cout << "Call ClientProc::popFrame() end." << endl;
 	return cpyBytes;
 }
 
+/*
+	功能：	判断Group 是否为满。
+	返回：
+	注意：
+*/
 bool ClientProc::isGroupFull() const
 {
 	//cout << "Call ClientProc::isGroupFull()." << endl;
@@ -397,6 +304,7 @@ bool ClientProc::isGroupFull() const
 	}
 
 	int i = 0;
+	#if 1
 	unsigned int frameSize = 0;
 	for(i = 0; i < videoSliceGroup_t::groupMaxSize; ++i)
 	{
@@ -412,8 +320,10 @@ bool ClientProc::isGroupFull() const
 	{
 		return false;
 	}
+	#else
+	判断Group 是否为满的方法，有优化空间。
+	#endif
 
 	return false;
 }
-
 

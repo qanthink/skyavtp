@@ -1,18 +1,14 @@
 #pragma once
 
-#include <atomic>
-#include <thread>
-#include <string>
 #include "udp_client.h"
-
 
 #define AVTP_PORT 1000
 #define SLICE_HEAD_SIZE (8 * 4)
 
 /*
 	概念约定：
-	====帧Frame ：H.26X 的I 帧和P 帧，以及MJPEG 的每个帧，都为帧。
-	====片Slice ：把帧数据分割成若干份，每份中再补充与协议相关的私有数据，则形成了一个一个片数据Slice.
+	====帧Frame ：H.26X 的I 帧和P 帧，以及MJPEG 的每个帧，都为帧，记作Frame.
+	====片Slice ：把帧数据分割成若干份，每份中再补充与协议相关的私有数据，则形成了多份片数据Slice.
 	====片组SliceGroup: 一帧Frame 分割出来的若干片Slice, 形成了一个片组SliceGroup.
 */
 
@@ -38,7 +34,6 @@ public:
 	unsigned int avtpDataType = avtpDataType::TYPE_INVALID;
 	unsigned int avtpData[3] = {0};
 };
-
 
 /*	TYPE 决定了后续数据的排列格式：
 	TYPE_INVALID:
@@ -66,7 +61,7 @@ public:
 */
 
 /*
-	case TYPE_AV_VIDEO:
+	TYPE_AV_VIDEO:
 	
 	UDP包的正文内容，需要限制在548 Bytes以内(Internet环境)，或1472 Bytes 以内(局域网环境)。
 	在一片Slice 中，一部分字节用作了私有协议头，所以留给视频数据的空间不足548(或1472) Bytes.
@@ -76,7 +71,7 @@ class videoSlice_t{
 public:
 	//const static unsigned int sliceBufMaxSize = 516;
 	const static unsigned int sliceBufMaxSize = 1440;
-	//const static unsigned int sliceBufMaxSize = 1440 * 2;
+	//const static unsigned int sliceBufMaxSize = 1440 * 2;		// 2880
 	//const static unsigned int sliceBufMaxSize = 1440 * 3;		// 4320
 	//const static unsigned int sliceBufMaxSize = 1440 * 4;		// 5600
 	//const static unsigned int sliceBufMaxSize = 1440 * 5;		// 7000
@@ -90,8 +85,8 @@ public:
 public:
 	unsigned int avtpDataType = avtpDataType::TYPE_INVALID;	// 第0个int: 数据类型。
 	unsigned int frameID = 0;								// 第1个int: 帧ID, 唯一标识一个Frame.
-	unsigned int frameSize = 0;								// 第2个int: 帧长度。
-	unsigned int sliceSeq = 0;								// 第3个int: 片序号，决定了在一个Frame 中的位置。
+	unsigned int sliceSeq = 0;								// 第2个int: 片序号，决定了在一个Frame 中的位置。
+	unsigned int frameSize = 0;								// 第3个int: 帧长度。
 	unsigned int sliceSize = 0;								// 第4个int: 片大小。
 	unsigned int reserve0 = 0;								// 第5个int: 保留。
 	unsigned int reserve1 = 0;								// 第6个int: 保留。

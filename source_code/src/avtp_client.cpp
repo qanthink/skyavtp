@@ -199,7 +199,7 @@ int AvtpVideoClient::sendVideoFrame(const void *frameBuf, const unsigned int fra
 	}while(!isGroupEmpty(sliceNum));
 	
 	mFrameID++;
-	if(sendCnt > 50)
+	if(sendCnt > 20)
 	{
 		lossRate = (double)resendCnt / sendCnt;
 		resendCnt = 0;

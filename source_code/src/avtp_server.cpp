@@ -108,10 +108,12 @@ bool AvtpVideoServer::queryClient(string clientIP)
 int AvtpVideoServer::recvVideoFrame(string clientIp, void *frameBuf, const unsigned int frameBufSize)
 {
 	//cout << "Call AvtpVideoServer::recvVideoFrame()." << endl;
+	//cout << "recvVideoFrame." << clientIp << endl;
 
 	int frameRealSize = 0;
 	frameRealSize = clientPool[clientIp]->popFrame(frameBuf, frameBufSize);
 	
+	//cout << "recvVideoFrame end." << clientIp << endl;
 	//cout << "Call AvtpVideoServer::recvVideoFrame() end." << endl;
 	return frameRealSize;
 }
@@ -211,8 +213,9 @@ int AvtpVideoServer::listening()
 				avtpCmd.avtpDataType = avtpDataType::TYPE_CMD_ACK;
 				avtpCmd.avtpData[0] = videoSlice.frameID;
 				avtpCmd.avtpData[1] = videoSlice.sliceSeq;
-				pUdpServer->send(&avtpCmd, sizeof(avtpCmd_t), &stAddrClient);
+				// 2023.4.6 先push 再send ACK. 避免没来得及处理，TX 端根据ACK 又发下一帧数据。
 				clientPool[clientIp]->pushSlice(&videoSlice);
+				pUdpServer->send(&avtpCmd, sizeof(avtpCmd_t), &stAddrClient);
 				break;
 			}
 			default:
@@ -246,11 +249,13 @@ ClientProc::~ClientProc()
 int ClientProc::pushSlice(const videoSlice_t *pVideoSlice)
 {
 	//cout << "Call ClientProc::pushSlice()." << endl;
+	//cout << "pushSlice" << endl;
 	unique_lock<mutex> lock(mMtx);
 	videoSliceGroup.videoSlice[pVideoSlice->sliceSeq] = *pVideoSlice;
 	lock.unlock();
 	mCondVar.notify_one();
 
+	//cout << "pushSlice end." << endl;
 	//cout << "Call ClientProc::pushSlice() end." << endl;
 	return 0;
 }
@@ -263,9 +268,11 @@ int ClientProc::pushSlice(const videoSlice_t *pVideoSlice)
 int ClientProc::popFrame(void *frameBuf, const unsigned int frameBufLen)
 {
 	//cout << "Call ClientProc::popFrame()." << endl;
+	//cout << "popFrame." << endl;
 	unique_lock<mutex> lock(mMtx);
 	while(!isGroupFull())	// 队列不满则循环等待。
 	{
+		//cout << "wait" << endl;
 		mCondVar.wait(lock);
 	}
 
@@ -284,6 +291,7 @@ int ClientProc::popFrame(void *frameBuf, const unsigned int frameBufLen)
 	lock.unlock();
 
 	//cout << "Call ClientProc::popFrame() end." << endl;
+	//cout << "popFrame end." << endl;
 	return cpyBytes;
 }
 
@@ -297,21 +305,32 @@ bool ClientProc::isGroupFull() const
 	//cout << "Call ClientProc::isGroupFull()." << endl;
 	const videoSlice_t *pSlice = NULL;
 	pSlice = videoSliceGroup.videoSlice;
+	#if 0	// 不再做此判断，信任TX 端不会发送0 长度的脏数据。
 	if(0 == pSlice->frameSize)
 	{
 		return false;
 	}
+	#endif
 
 	int i = 0;
-	#if 1
 	unsigned int frameSize = 0;
 	for(i = 0; i < videoSliceGroup_t::groupMaxSize; ++i)
 	{
+		// if(0 == pSlice->sliceSize) break; 缩短了轮询时间，对及时任务处理很重要。
+		if(0 == pSlice->sliceSize)
+		{
+			break;
+		}
+	
 		frameSize += pSlice->sliceSize;
 		++pSlice;
 	}
 
-	if(videoSliceGroup.videoSlice[0].frameSize == frameSize)
+	//cout << "frameSize = " << frameSize << endl;
+	//cout << "[0].frameSize = " << videoSliceGroup.videoSlice[0].frameSize << endl;
+
+	if((videoSliceGroup.videoSlice[0].frameSize == frameSize) && 
+		(0 != frameSize))
 	{
 		return true;
 	}
@@ -319,9 +338,6 @@ bool ClientProc::isGroupFull() const
 	{
 		return false;
 	}
-	#else
-	判断Group 是否为满的方法，有优化空间。
-	#endif
 
 	return false;
 }

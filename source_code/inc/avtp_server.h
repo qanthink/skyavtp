@@ -22,7 +22,7 @@ public:
 	ClientProc();
 	~ClientProc();
 
-	const unsigned int queueDepths = 3;
+	const unsigned int queueDepths = 12;
 	MyQueue<videoSlice_t> sliceQueue;
 
 	int pushSlice(const videoSlice_t *pVideoSlice);

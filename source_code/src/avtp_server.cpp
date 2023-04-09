@@ -248,6 +248,7 @@ int AvtpVideoServer::listening()
 				if(clientPool[clientIp]->sliceQueue.isFull())
 				{
 					// 队列满，donothing. Wait queue empty and TX retransmit.
+					cerr << "queue full" << endl;
 					break;
 				}
 				else
@@ -417,16 +418,16 @@ int ClientProc::popFrame(void *frameBuf, const unsigned int frameBufLen)
 	ret = sliceQueue.pop(&videoSlice);
 	if(0 != ret)		// 队列异常或队列空，取数据失败，返回-1.
 	{
-		cerr << "sliceQueue is empty or abnormal." << endl;
+		//cerr << "sliceQueue is empty or abnormal." << endl;
 		return -1;
 	}
 
-	cout << "videoSlice.frameID, expFrameID = " << videoSlice.frameID << ", " << expFrameID << endl;
+	//cout << "videoSlice.frameID, expFrameID = " << videoSlice.frameID << ", " << expFrameID << endl;
 	// 步骤二：判断slice 要不要放入sliceGroup, 以及sliceGroup 是否要清除数据。
 	// 如果是期待的frameID, 则保存。
 	if(videoSlice.frameID == expFrameID)
 	{
-		cout << "frameID == expFrame" << endl;
+		//cout << "frameID == expFrame" << endl;
 		// 如果slice 数据不为空，说明slice 没有被清除、没有被使用，是重传的，不处理。并且返回-2.
 		if(avtpDataType::TYPE_INVALID != videoSliceGroup.videoSlice[videoSlice.sliceSeq].avtpDataType)
 		{
@@ -440,16 +441,16 @@ int ClientProc::popFrame(void *frameBuf, const unsigned int frameBufLen)
 	// 如果不是期待的frameID, 则要分情况。
 	else
 	{
-		cout << "frameID != expFrame" << endl;
+		//cout << "frameID != expFrame" << endl;
 		if(0 == videoSlice.frameID)			// TX 断连重启的情况。
 		{
-			cout << "frameID == 0" << endl;
+			//cout << "frameID == 0" << endl;
 			expFrameID = 0;
 			videoSliceGroup.videoSlice[videoSlice.sliceSeq] = videoSlice;
 		}
 		else if(0 == expFrameID)			// RX 断联重启的情况。
 		{
-			cout << "expFrameID == 0" << endl;
+			//cout << "expFrameID == 0" << endl;
 			expFrameID = videoSlice.frameID + 2;
 			videoSliceGroup.videoSlice[videoSlice.sliceSeq] = {0};
 			return -3;
@@ -544,14 +545,14 @@ int ClientProc::popFrame(void *frameBuf, const unsigned int frameBufLen)
 	if((frameSize == videoSliceGroup.videoSlice[0].frameSize) && 
 		(0 != frameSize))
 	{
-		cout << "frameSize = " << frameSize << endl;
+		cout << "fSz=" << frameSize << endl;
 		expFrameID = videoSliceGroup.videoSlice[0].frameID + 1;
 		//memset(&videoSliceGroup, 0, sizeof(videoSliceGroup_t));
 		//return frameSize;
 	}
 	else
 	{
-		cout << "frameSize != [0].frameSize, frameSize = " << frameSize << endl;
+		//cout << "frameSize != [0].frameSize, frameSize = " << frameSize << endl;
 		return -6;
 	}
 
@@ -560,6 +561,10 @@ int ClientProc::popFrame(void *frameBuf, const unsigned int frameBufLen)
 	pVideoSlice = videoSliceGroup.videoSlice;
 	for(i = 0; i < videoSliceGroup_t::groupMaxSize; ++i)
 	{
+		if(0 == pVideoSlice->frameSize)
+		{
+			break;
+		}
 		memcpy(frameBuf + cpyBytes, pVideoSlice->sliceBuf, pVideoSlice->sliceSize);
 		cpyBytes += pVideoSlice->sliceSize;
 		++pVideoSlice;

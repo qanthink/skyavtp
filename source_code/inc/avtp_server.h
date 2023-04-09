@@ -23,14 +23,16 @@ public:
 
 	int pushSlice(const videoSlice_t *pVideoSlice);
 	int popFrame(void *frameBuf, const unsigned int frameBufLen);
-	bool isGroupFull() const;
+	bool isGroupFull();
 
 private:
 	std::mutex mMtx;
+	//std::unique_lock<std::mutex> lock;
 	std::condition_variable mCondVar;
 	//std::atomic_flag mLock = ATOMIC_FLAG_INIT;		// 原子对象，保障原子操作。
 
 	videoSliceGroup_t videoSliceGroup;
+	unsigned int expFrameID = 0;
 };
 
 

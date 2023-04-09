@@ -104,6 +104,7 @@ bool AvtpVideoServer::queryClient(string clientIP)
 
 /*
 	功能：	接收视频帧。
+	返回：	成功，返回帧数据长度；失败，返回-1.
 	注意：	
 */
 int AvtpVideoServer::recvVideoFrame(string clientIp, void *frameBuf, const unsigned int frameBufSize)
@@ -215,6 +216,7 @@ int AvtpVideoServer::listening()
 				avtpCmd.avtpDataType = avtpDataType::TYPE_CMD_ACK;
 				avtpCmd.avtpData[0] = videoSlice.frameID;
 				avtpCmd.avtpData[1] = videoSlice.sliceSeq;
+				#if 0
 				// 2023.4.6 先push 再send ACK. 避免没来得及处理，TX 端根据ACK 又发下一帧数据。
 				int ret = 0;
 				ret = clientPool[clientIp]->pushSlice(&videoSlice);		// push 动作可能存在延时。
@@ -242,6 +244,18 @@ int AvtpVideoServer::listening()
 					cerr << "push fail" << endl;
 					// pUdpServer->send(&avtpCmd, sizeof(avtpCmd_t), &stAddrClient);
 				}
+				#else
+				if(clientPool[clientIp]->sliceQueue.isFull())
+				{
+					// 队列满，donothing. Wait queue empty and TX retransmit.
+					break;
+				}
+				else
+				{
+					pUdpServer->send(&avtpCmd, sizeof(avtpCmd_t), &stAddrClient);
+					clientPool[clientIp]->sliceQueue.push(&videoSlice);
+				}
+				#endif
 				break;
 			}
 			default:
@@ -367,6 +381,7 @@ int ClientProc::popFrame(void *frameBuf, const unsigned int frameBufLen)
 {
 	//cout << "Call ClientProc::popFrame()." << endl;
 	//cout << "popFrame." << endl;
+	#if 0
 	unique_lock<mutex> lock(mMtx);
 	//std::lock(mMtx, std::defer_lock);
 	while(!isGroupFull())	// 队列不满则循环等待。
@@ -395,6 +410,164 @@ int ClientProc::popFrame(void *frameBuf, const unsigned int frameBufLen)
 	//cout << "Call ClientProc::popFrame() end." << endl;
 	//cout << "popFrame end." << endl;
 	return cpyBytes;
+	#else
+	// 步骤一：从sliceQueue 中取数据出来。
+	int ret = 0;
+	videoSlice_t videoSlice = {0};
+	ret = sliceQueue.pop(&videoSlice);
+	if(0 != ret)		// 队列异常或队列空，取数据失败，返回-1.
+	{
+		cerr << "sliceQueue is empty or abnormal." << endl;
+		return -1;
+	}
+
+	cout << "videoSlice.frameID, expFrameID = " << videoSlice.frameID << ", " << expFrameID << endl;
+	// 步骤二：判断slice 要不要放入sliceGroup, 以及sliceGroup 是否要清除数据。
+	// 如果是期待的frameID, 则保存。
+	if(videoSlice.frameID == expFrameID)
+	{
+		cout << "frameID == expFrame" << endl;
+		// 如果slice 数据不为空，说明slice 没有被清除、没有被使用，是重传的，不处理。并且返回-2.
+		if(avtpDataType::TYPE_INVALID != videoSliceGroup.videoSlice[videoSlice.sliceSeq].avtpDataType)
+		{
+			return -2;
+		}
+		else
+		{
+			videoSliceGroup.videoSlice[videoSlice.sliceSeq] = videoSlice;
+		}
+	}
+	// 如果不是期待的frameID, 则要分情况。
+	else
+	{
+		cout << "frameID != expFrame" << endl;
+		if(0 == videoSlice.frameID)			// TX 断连重启的情况。
+		{
+			cout << "frameID == 0" << endl;
+			expFrameID = 0;
+			videoSliceGroup.videoSlice[videoSlice.sliceSeq] = videoSlice;
+		}
+		else if(0 == expFrameID)			// RX 断联重启的情况。
+		{
+			cout << "expFrameID == 0" << endl;
+			expFrameID = videoSlice.frameID + 2;
+			videoSliceGroup.videoSlice[videoSlice.sliceSeq] = {0};
+			return -3;
+		}
+		else if(videoSlice.frameID < expFrameID)
+		{
+			cerr << "old slice." << endl;
+			return -4;
+		}
+		else if(videoSlice.frameID > expFrameID)
+		{
+			cerr << "Maybe not pop" << endl;
+			cerr << "frameID, expFrameID = " << videoSlice.frameID << ", " << expFrameID << endl;
+			return -5;
+		}
+	}
+
+	// 步骤三：从sliceGroup 中判断数据是否已满。
+	int i = 0;
+	videoSlice_t *pSlice = NULL;
+	pSlice = videoSliceGroup.videoSlice;
+	for(i = 0; i < videoSliceGroup_t::groupMaxSize; ++i)
+	{
+		// if(0 == pSlice->sliceSize) break; 缩短了轮询时间，对即时任务处理很重要。
+		if(0 == pSlice->sliceSize)
+		{
+			break;
+		}
+		else
+		{
+			//do next;
+		}
+
+		if(pSlice->frameID == expFrameID)	// 包含两边同时重连重启的情况，ID == 0.
+		{
+			++pSlice;
+			continue;
+		}
+		else								// ID 不同。
+		{
+			// do next
+		}
+
+		if(0 == pSlice->frameID)			// TX 端重启重连
+		{
+			*pSlice = {0};
+			++pSlice;
+			continue;
+		}
+		// 不存在该if 分支，如果RX 端重启重连，push 中已经对expFrameID 进行了重置。
+		else if(0 == expFrameID) 			// RX 端重启重连
+		{
+			cerr << "0 == expFrameID. unexpected" << endl;
+			continue;
+		}
+		else		// 0 != expFrameID && 0 != frameID && expFrameID != frameID.
+		{
+			if(pSlice->frameID < expFrameID)
+			{
+				*pSlice = {0};
+				continue;
+			}
+			else	// frameID > expFrameID.
+			{
+				cerr << "frameID > expFrameID. unexpected" << endl;
+				*pSlice = {0};
+				continue;
+			}
+		}
+	}
+
+	// 第四步：从sliceGroup 中打包出frame.
+	unsigned int frameSize = 0;
+	pSlice = videoSliceGroup.videoSlice;
+	for(i = 0; i < videoSliceGroup_t::groupMaxSize; ++i)
+	{
+		// if(0 == pSlice->sliceSize) break; 缩短了轮询时间，对及时任务处理很重要。
+		if(0 == pSlice->sliceSize)
+		{
+			break;
+		}
+		else
+		{
+			frameSize += pSlice->sliceSize;
+			++pSlice;
+		}
+	}
+
+	//cout << "frameSize = " << frameSize << endl;
+	//cout << "[0].frameSize = " << videoSliceGroup.videoSlice[0].frameSize << endl;
+
+	if((frameSize == videoSliceGroup.videoSlice[0].frameSize) && 
+		(0 != frameSize))
+	{
+		cout << "frameSize = " << frameSize << endl;
+		expFrameID = videoSliceGroup.videoSlice[0].frameID + 1;
+		//memset(&videoSliceGroup, 0, sizeof(videoSliceGroup_t));
+		//return frameSize;
+	}
+	else
+	{
+		cout << "frameSize != [0].frameSize, frameSize = " << frameSize << endl;
+		return -6;
+	}
+
+	unsigned int cpyBytes = 0;
+	const videoSlice_t *pVideoSlice = NULL;
+	pVideoSlice = videoSliceGroup.videoSlice;
+	for(i = 0; i < videoSliceGroup_t::groupMaxSize; ++i)
+	{
+		memcpy(frameBuf + cpyBytes, pVideoSlice->sliceBuf, pVideoSlice->sliceSize);
+		cpyBytes += pVideoSlice->sliceSize;
+		++pVideoSlice;
+	}
+	memset(&videoSliceGroup, 0, sizeof(videoSliceGroup_t));
+	
+	return cpyBytes;
+	#endif
 }
 
 /*

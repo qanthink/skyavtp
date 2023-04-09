@@ -82,6 +82,8 @@ public:
 	//const static unsigned int sliceBufMaxSize = 1440 * 16;	// 22400
 	//const static unsigned int sliceBufMaxSize = 1440 * 24;	// 33600
 
+	videoSlice_t(int arg = 0){}
+
 public:
 	unsigned int avtpDataType = avtpDataType::TYPE_INVALID;	// 第0个int: 数据类型。
 	unsigned int frameID = 0;								// 第1个int: 帧ID, 唯一标识一个Frame.

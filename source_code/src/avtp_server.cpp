@@ -22,6 +22,7 @@ AvtpVideoServer::AvtpVideoServer(const char * serverIP)
 	cout << "Call AvtpVideoServer::AvtpVideoServer()." << endl;
 	
 	bRunning = true;
+	testQueue();
 	pUdpServer = make_shared<UdpServer>(serverIP, avtpPort);
 	pThServerRecv = make_shared<thread>(thListening, this);
 	
@@ -257,6 +258,7 @@ int AvtpVideoServer::listening()
 ClientProc::ClientProc()
 {
 	cout << "Call AvtpVideoServer::ClientProc()." << endl;
+	sliceQueue.setQueueDepth(queueDepths);
 	cout << "Call AvtpVideoServer::ClientProc() end." << endl;
 }
 

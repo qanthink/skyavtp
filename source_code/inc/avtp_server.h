@@ -12,6 +12,7 @@ xxx 版权所有。
 #include <thread>
 #include <condition_variable>
 
+#include "myqueue.h"
 #include "udp_server.h"
 #include "avtp_datatype.h"
 
@@ -20,6 +21,9 @@ class ClientProc
 public:
 	ClientProc();
 	~ClientProc();
+
+	const unsigned int queueDepths = 3;
+	MyQueue<videoSlice_t> sliceQueue;
 
 	int pushSlice(const videoSlice_t *pVideoSlice);
 	int popFrame(void *frameBuf, const unsigned int frameBufLen);

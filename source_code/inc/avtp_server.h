@@ -6,10 +6,9 @@ xxx 版权所有。
 
 #pragma once
 
-#include <atomic>
 #include <map>
-#include <mutex>
 #include <thread>
+#include <semaphore.h>
 #include <condition_variable>
 
 #include "myqueue.h"
@@ -22,19 +21,20 @@ public:
 	ClientProc();
 	~ClientProc();
 
-	const unsigned int queueDepths = 12;
+	sem_t sem;
+	// FHD20, bitRata=800Kbps, maxIframeSize=73KB.
+	const unsigned int maxIframeSize = 64 * 1024;
+	//const unsigned int maxIframeSize = 128 * 1024;
+	//const unsigned int maxIframeSize = 256 * 1024;
+	// queueDepths = maxIframeSize / videoSlice_t::sliceBufMaxSize;
+	const unsigned int queueDepths = maxIframeSize / videoSlice_t::sliceBufMaxSize;
 	MyQueue<videoSlice_t> sliceQueue;
 
-	int pushSlice(const videoSlice_t *pVideoSlice);
+	//int pushSlice(const videoSlice_t *pVideoSlice);
 	int popFrame(void *frameBuf, const unsigned int frameBufLen);
-	bool isGroupFull();
+	//bool isGroupFull();
 
 private:
-	std::mutex mMtx;
-	//std::unique_lock<std::mutex> lock;
-	std::condition_variable mCondVar;
-	//std::atomic_flag mLock = ATOMIC_FLAG_INIT;		// 原子对象，保障原子操作。
-
 	videoSliceGroup_t videoSliceGroup;
 	unsigned int expFrameID = 0;
 };
@@ -64,7 +64,6 @@ private:
 
 	bool bRunning = false;							// 运行状态标志。
 	unsigned int mTimeOutMs = 5000;					// 超时时间。
-	//std::atomic_flag mLock = ATOMIC_FLAG_INIT;	// 原子对象，保障原子操作。
 	std::mutex mMtx;								// 互斥量
 };
 

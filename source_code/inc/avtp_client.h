@@ -48,7 +48,5 @@ private:
 	double lossRate = 0.0;
 	
 	std::mutex mMtx;					// 互斥量。
-	//std::condition_variable mCondVar;
-	//std::atomic_flag mLock = ATOMIC_FLAG_INIT;		// 原子对象，保障原子操作。
 };
 

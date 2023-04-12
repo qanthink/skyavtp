@@ -22,21 +22,17 @@ public:
 	~ClientProc();
 
 	sem_t sem;
-	// FHD20, bitRata=800Kbps, maxIframeSize=73KB.
+	// FHD20, bitRata=800Kbps, maxIframeSize=131KB.
 	const unsigned int maxIframeSize = 64 * 1024;
-	//const unsigned int maxIframeSize = 128 * 1024;
-	//const unsigned int maxIframeSize = 256 * 1024;
 	// queueDepths = maxIframeSize / videoSlice_t::sliceBufMaxSize;
 	const unsigned int queueDepths = maxIframeSize / videoSlice_t::sliceBufMaxSize;
 	MyQueue<videoSlice_t> sliceQueue;
 
-	//int pushSlice(const videoSlice_t *pVideoSlice);
 	int popFrame(void *frameBuf, const unsigned int frameBufLen);
-	//bool isGroupFull();
 
 private:
-	videoSliceGroup_t videoSliceGroup;
 	unsigned int expFrameID = 0;
+	videoSliceGroup_t videoSliceGroup;
 };
 
 

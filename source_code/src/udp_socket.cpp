@@ -10,14 +10,11 @@
 #ifdef _WIN64
 #include <Ws2tcpip.h>
 #elif defined(__linux__)
-#include <sys/socket.h>
-#include <fcntl.h>
-#include <errno.h>
 #include <unistd.h>
 #include <string.h>
 #endif
 #include <iostream>
-#include "udp_client.h"
+#include "udp_socket.h"
 
 using namespace std;
 
@@ -26,20 +23,20 @@ using namespace std;
 	返回：	返回0.
 	注意：	通常用此带参构造函数完成对象的定义和初始化。
 */
-UdpClient::UdpClient(const char *serverIP, const unsigned short ipPort)
+UdpSocket::UdpSocket(const char *localIP, const unsigned short ipPort)
 {
-	cout << "Call UdpClient::UdpClient()." << endl;
+	cout << "Call UdpSocket::UdpSocket()." << endl;
 
 	sfd = -1;
 	mIpPort = ipPort;
-	mServerIP = serverIP;
+	mLocalIP = localIP;
 
+	struct sockaddr_in stAddrServer = {0};
 	memset(&stAddrServer, 0, sizeof(struct sockaddr_in));
 	stAddrServer.sin_family = AF_INET;
 	stAddrServer.sin_port = htons(ipPort);
 	stAddrServer.sin_addr.s_addr = htonl(INADDR_ANY);
-	//stAddrServer.sin_addr.s_addr = inet_addr(serverIP);
-	//inet_pton(AF_INET, serverIP, (void *)&stAddrServer.sin_addr.s_addr);
+
 	int ret = 0;
 #ifdef _WIN64
 	// Windows 初始化网络
@@ -48,7 +45,7 @@ UdpClient::UdpClient(const char *serverIP, const unsigned short ipPort)
 	ret = WSAStartup(sockVersion, &wsadata);
 	if(0 != ret)
 	{
-		cerr << "Fail to call WSAStartup() in UdpClient::UdpClient(). Error = " << WSAGetLastError() << endl;
+		cerr << "Fail to call WSAStartup() in UdpSocket::UdpSocket(). Error = " << WSAGetLastError() << endl;
 		return;
 	}
 #endif
@@ -58,18 +55,17 @@ UdpClient::UdpClient(const char *serverIP, const unsigned short ipPort)
 	if(-1 == sfd || 0 == sfd)
 	{
 		cerr << "Fail to call socket()." << endl;
+		cerr << strerror(errno) << endl;
 	}
 
-	#if 1
-	// bind();	// 主动端可省略绑定。
+	// bind(). 基于已知端口进行通讯。
 	ret = bind(sfd, (struct sockaddr *)&stAddrServer, sizeof(struct sockaddr));
 	if(-1 == ret)
 	{
 		cerr << "Fail to call bind()." << endl;
-		cerr << " " << strerror(errno) << endl;
+		cerr << strerror(errno) << endl;
 		return;
 	}
-	#endif
 
 	bInit = true;
 
@@ -82,7 +78,7 @@ UdpClient::UdpClient(const char *serverIP, const unsigned short ipPort)
 	setRecvBufLen();
 #endif
 
-	cout << "Call UdpClient::UdpClient() end." << endl;
+	cout << "Call UdpSocket::UdpSocket() end." << endl;
 }
 
 /*
@@ -90,9 +86,9 @@ UdpClient::UdpClient(const char *serverIP, const unsigned short ipPort)
 	返回：	
 	注意：	
 */
-UdpClient::~UdpClient()
+UdpSocket::~UdpSocket()
 {
-	cout << "Call UdpClient::~UdpClient()." << endl;
+	cout << "Call UdpSocket::~UdpSocket()." << endl;
 	if(-1 != sfd)
 	{
 #ifdef _WIN64
@@ -104,36 +100,35 @@ UdpClient::~UdpClient()
 	}
 
 	mIpPort = 0;
-	mServerIP = NULL;
+	mLocalIP = NULL;
 	bInit = false;
-	memset(&stAddrServer, 0, sizeof(struct sockaddr_in));
 	
-	cout << "Call UdpClient::~UdpClient() end." << endl;
+	cout << "Call UdpSocket::~UdpSocket() end." << endl;
 }
 
 /*
 	功能：	以非阻塞形式发送UDP 数据。
-	返回：	成功，返回字节数；失败，返回-1；
+	返回：	成功，返回字节数；形参不正确，返回-1; Socket 未创建，返回-2.
 	注意：	
 */
-int UdpClient::sendto1(const void *const dataBuf, const int dataSize, const struct sockaddr_in *pstAddrClient)
+int UdpSocket::sendTo(const void *buf, size_t len, const struct sockaddr_in *pstDstAddr)
 {
-	//cout << "Call UdpClient::send()." << endl;
+	//cout << "Call UdpSocket::sendTo()." << endl;
 
-	if(NULL == dataBuf || NULL == pstAddrClient)
+	if(NULL == buf || NULL == pstDstAddr)
 	{
-		cerr << "Fail to call UdpClient::send(). Arugument has null value." << endl;
+		cerr << "Fail to call UdpSocket::sendTo(). Arugument has null value." << endl;
 		return -1;
 	}
 
 	if(!bInit)
 	{
-		cerr << "Fail to call UdpClient::send(). UdpClient is not initialized." << endl;
-		return -1;
+		cerr << "Fail to call UdpSocket::sendTo(). UdpSocket is not initialized." << endl;
+		return -2;
 	}
 
 	int ret = 0;
-	ret = sendto(sfd, (char *)dataBuf, dataSize, 0, (struct sockaddr*)pstAddrClient, sizeof(struct sockaddr));
+	ret = sendto(sfd, (char *)buf, len, 0, (struct sockaddr*)pstDstAddr, sizeof(struct sockaddr));
 	if(-1 == ret)
 	{
 #ifdef _WIN64
@@ -143,27 +138,39 @@ int UdpClient::sendto1(const void *const dataBuf, const int dataSize, const stru
 			case 10040:
 				break;
 			default:
-				cerr << "Fail to call UdpClient::send(). errno = " << wsaErrno << endl;
+				cerr << "Fail to call UdpSocket::sendTo(). errno = " << wsaErrno << endl;
 				break;
 		}
 #elif defined(__linux__)
-		cerr << "Fail to call UdpClient::send(). " << strerror(errno) << endl;
+		cerr << "Fail to call UdpSocket::sendTo(). " << strerror(errno) << endl;
 #endif
 	}
 
-	//cout << "Call UdpClient::send() end." << endl;
+	//cout << "Call UdpSocket::sendTo() end." << endl;
 	return ret;
 }
 
 /*
 	功能：	以阻塞形式接收UDP 数据。
-	返回：	成功，返回字节数；失败，返回-1；
+	返回：	成功，返回字节数；形参不正确，返回-1; Socket 未创建，返回-2.
 	注意：	
 */
-int UdpClient::recvFrom(void *const dataBuf, const int dataSize, struct sockaddr_in *pstAddrClient)
+int UdpSocket::recvFrom(void *buf, size_t len, struct sockaddr_in *pstSrcAddr)
 {
-	//cout << "Call UdpClient::recv()." << endl;
+	//cout << "Call UdpSocket::recvFrom()." << endl;
 	//ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags, struct sockaddr *src_addr, socklen_t *addrlen);
+	if(NULL == buf || NULL == pstSrcAddr)
+	{
+		cerr << "Fail to call UdpSocket::recvFrom(). Arugument has null value." << endl;
+		return -1;
+	}
+
+	if(!bInit)
+	{
+		cerr << "Fail to call UdpSocket::recvFrom(). UdpSocket is not initialized." << endl;
+		return -2;
+	}
+	
 	int ret = 0;
 #ifdef _WIN64
 	int sockLen = 0;
@@ -171,7 +178,7 @@ int UdpClient::recvFrom(void *const dataBuf, const int dataSize, struct sockaddr
 	socklen_t sockLen = 0;
 #endif
 	sockLen = sizeof(struct sockaddr);
-	ret = recvfrom(sfd, (char *)dataBuf, dataSize, 0, (struct sockaddr *)pstAddrClient, &sockLen);
+	ret = recvfrom(sfd, (char *)buf, len, 0, (struct sockaddr *)pstSrcAddr, &sockLen);
 	if(-1 == ret)
 	{
 #ifdef _WIN64
@@ -181,15 +188,15 @@ int UdpClient::recvFrom(void *const dataBuf, const int dataSize, struct sockaddr
 			case 10040:
 				break;
 			default:
-				cerr << "Fail to call UdpClient::recv(). errno = " << wsaErrno << endl;
+				cerr << "Fail to call UdpSocket::recvFrom(). errno = " << wsaErrno << endl;
 				break;
 		}
 #elif defined(__linux__)
-		cerr << "Fail to call UdpClient::recv(). " << strerror(errno) << endl;
+		cerr << "Fail to call UdpSocket::recvFrom(). " << strerror(errno) << endl;
 #endif
 	}
 
-	//cout << "Call UdpClient::recv() end." << endl;
+	//cout << "Call UdpSocket::recvFrom() end." << endl;
 	return ret;
 }
 
@@ -198,7 +205,7 @@ int UdpClient::recvFrom(void *const dataBuf, const int dataSize, struct sockaddr
 	返回：	成功，返回0; 失败，返回非0.
 	注意：	
 */
-int UdpClient::setRecvBufLen(const unsigned int recvBufLen)
+int UdpSocket::setRecvBufLen(const unsigned int recvBufLen)
 {
 	int ret = 0;
 	unsigned int defaultBufSize = 0;
@@ -212,9 +219,9 @@ int UdpClient::setRecvBufLen(const unsigned int recvBufLen)
 	if(0 != ret)
 	{
 #ifdef _WIN64
-		cerr << "Fail to get default receive buf size in UdpClient::setRecvBufLen(). errno = " << WSAGetLastError() << endl;
+		cerr << "Fail to get default receive buf size in UdpSocket::setRecvBufLen(). errno = " << WSAGetLastError() << endl;
 #elif defined(__linux__)
-		cerr << "Fail to get default receive buf size in UdpClient::setRecvBufLen(). errno = " << errno << endl;
+		cerr << "Fail to get default receive buf size in UdpSocket::setRecvBufLen(). errno = " << errno << endl;
 #endif
 	}
 	else
@@ -226,9 +233,9 @@ int UdpClient::setRecvBufLen(const unsigned int recvBufLen)
 	if(0 != ret)
 	{
 #ifdef _WIN64
-		cerr << "Fail to set receive buf size in UdpClient::setRecvBufLen(). errno = " << WSAGetLastError() << endl;
+		cerr << "Fail to set receive buf size in UdpSocket::setRecvBufLen(). errno = " << WSAGetLastError() << endl;
 #elif defined(__linux__)
-		cerr << "Fail to set receive buf size in UdpClient::setRecvBufLen(). errno = " << errno << endl;
+		cerr << "Fail to set receive buf size in UdpSocket::setRecvBufLen(). errno = " << errno << endl;
 #endif
 	}
 	else
@@ -240,9 +247,9 @@ int UdpClient::setRecvBufLen(const unsigned int recvBufLen)
 	if(0 != ret)
 	{
 #ifdef _WIN64
-		cerr << "Fail to get default receive buf size in UdpClient::setRecvBufLen(). errno = " << WSAGetLastError() << endl;
+		cerr << "Fail to get default receive buf size in UdpSocket::setRecvBufLen(). errno = " << WSAGetLastError() << endl;
 #elif defined(__linux__)
-		cerr << "Fail to get default receive buf size in UdpClient::setRecvBufLen(). errno = " << errno << endl;
+		cerr << "Fail to get default receive buf size in UdpSocket::setRecvBufLen(). errno = " << errno << endl;
 #endif
 	}
 	else
@@ -258,7 +265,7 @@ int UdpClient::setRecvBufLen(const unsigned int recvBufLen)
 	返回：	成功，返回0; 失败，返回非0.
 	注意：	
 */
-int UdpClient::setSendBufLen(const unsigned int sendBufLen)
+int UdpSocket::setSendBufLen(const unsigned int sendBufLen)
 {
 	int ret = 0;
 	unsigned int defaultBufSize = 0;
@@ -272,9 +279,9 @@ int UdpClient::setSendBufLen(const unsigned int sendBufLen)
 	if(0 != ret)
 	{
 #ifdef _WIN64
-		cerr << "Fail to get default send buf size in UdpClient::setRecvBufLen(). errno = " << WSAGetLastError() << endl;
+		cerr << "Fail to get default send buf size in UdpSocket::setRecvBufLen(). errno = " << WSAGetLastError() << endl;
 #elif defined(__linux__)
-		cerr << "Fail to get default send buf size in UdpClient::setRecvBufLen(). errno = " << errno << endl;
+		cerr << "Fail to get default send buf size in UdpSocket::setRecvBufLen(). errno = " << errno << endl;
 #endif
 	}
 	else
@@ -286,9 +293,9 @@ int UdpClient::setSendBufLen(const unsigned int sendBufLen)
 	if(0 != ret)
 	{
 #ifdef _WIN64
-		cerr << "Fail to set send buf size in UdpClient::setRecvBufLen(). errno = " << WSAGetLastError() << endl;
+		cerr << "Fail to set send buf size in UdpSocket::setRecvBufLen(). errno = " << WSAGetLastError() << endl;
 #elif defined(__linux__)
-		cerr << "Fail to set send buf size in UdpClient::setRecvBufLen(). errno = " << errno << endl;
+		cerr << "Fail to set send buf size in UdpSocket::setRecvBufLen(). errno = " << errno << endl;
 #endif
 	}
 	else
@@ -300,9 +307,9 @@ int UdpClient::setSendBufLen(const unsigned int sendBufLen)
 	if(0 != ret)
 	{
 #ifdef _WIN64
-		cerr << "Fail to get default send buf size in UdpClient::setRecvBufLen(). errno = " << WSAGetLastError() << endl;
+		cerr << "Fail to get default send buf size in UdpSocket::setRecvBufLen(). errno = " << WSAGetLastError() << endl;
 #elif defined(__linux__)
-		cerr << "Fail to get default send buf size in UdpClient::setRecvBufLen(). errno = " << errno << endl;
+		cerr << "Fail to get default send buf size in UdpSocket::setRecvBufLen(). errno = " << errno << endl;
 #endif
 	}
 	else

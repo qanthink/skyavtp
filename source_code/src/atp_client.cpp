@@ -23,8 +23,9 @@ AvtpAudioClient::AvtpAudioClient(const char * serverIP)
 	cout << "Call AvtpAudioClient::AvtpAudioClient()." << endl;
 	
 	bRunning = true;
-	pUdpClient = make_shared<UdpClient>(serverIP, avtpPort);
+	pUdpSocket = make_shared<UdpSocket>(serverIP, avtpPort);
 	pThServerRecv = make_shared<thread>(thListening, this);
+	mServerIP = serverIP;
 	
 	cout << "Call AvtpAudioClient::AvtpAudioClient() end." << endl;
 }
@@ -41,7 +42,8 @@ AvtpAudioClient::~AvtpAudioClient()
 		pThServerRecv = NULL;
 	}
 
-	pUdpClient = NULL;
+	pUdpSocket = NULL;
+	mServerIP = NULL;
 	cout << "Call AvtpAudioClient::~AvtpAudioClient() end." << endl;
 }
 
@@ -50,20 +52,20 @@ AvtpAudioClient::~AvtpAudioClient()
 	返回：	
 	注意：	
 */
-int AvtpAudioClient::sendAudioFrame(const void *frameBuf, const unsigned int frameBufLen)
+int AvtpAudioClient::sendAudioFrame(const void *buf, size_t len)
 {
 	//cout << "Call AvtpAudioClient::sendAudioFrame()." << endl;
 	audioFrame.avtpDataType = avtpDataType::TYPE_AV_AUDIO;
 	audioFrame.frameID = 0;
-	audioFrame.frameSize = frameBufLen;
-	memcpy(audioFrame.dataBuf, frameBuf, frameBufLen);
+	audioFrame.frameSize = len;
+	memcpy(audioFrame.dataBuf, buf, len);
 
 	struct sockaddr_in stAddrServer;
 	memset(&stAddrServer, 0, sizeof(struct sockaddr_in));
 	stAddrServer.sin_family = AF_INET;
-	stAddrServer.sin_port = htons(ATP_PORT);
-	stAddrServer.sin_addr.s_addr = inet_addr("192.168.0.200");
-	pUdpClient->sendto1(&audioFrame, sizeof(audioFrame_t), &stAddrServer);
+	stAddrServer.sin_port = htons(avtpPort);
+	stAddrServer.sin_addr.s_addr = inet_addr(mServerIP);
+	pUdpSocket->sendTo(&audioFrame, sizeof(audioFrame_t), &stAddrServer);
 
 	//cout << "Call AvtpAudioClient::sendAudioFrame() end." << endl;
 	return 0;
@@ -74,7 +76,7 @@ int AvtpAudioClient::sendAudioFrame(const void *frameBuf, const unsigned int fra
 	返回：	返回音频帧实际的长度。
 	注意：	
 */
-int AvtpAudioClient::recvAudioFrame(void *frameBuf, const unsigned int frameBufLen)
+int AvtpAudioClient::recvAudioFrame(void *buf, size_t len)
 {
 	//cout << "Call AvtpAudioClient::recvAudioFrame()." << endl;
 	int ret = 0;
@@ -86,8 +88,8 @@ int AvtpAudioClient::recvAudioFrame(void *frameBuf, const unsigned int frameBufL
 	}
 
 	unsigned min = 0;
-	min = ((frameBufLen > audioFrame.frameSize) ? audioFrame.frameSize : frameBufLen);
-	memcpy(frameBuf, audioFrame.dataBuf, min);
+	min = ((len > audioFrame.frameSize) ? audioFrame.frameSize : len);
+	memcpy(buf, audioFrame.dataBuf, min);
 	
 	//cout << "Call AvtpAudioClient::recvAudioFrame() end." << endl;
 	return min;
@@ -107,7 +109,7 @@ int AvtpAudioClient::listening()
 {
 	// 设置要监听的套接字。
 	int sfd = 0;
-	sfd = pUdpClient->getSocketFd();
+	sfd = pUdpSocket->getSocketFd();
 	fd_set fdset;
 	FD_ZERO(&fdset);
 	
@@ -151,10 +153,10 @@ int AvtpAudioClient::listening()
 		// step2 接收数据。
 		memset(&audioFrame, 0, sizeof(videoSlice_t));
 		memset(&stAddrClient, 0, sizeof(struct sockaddr));		// 必须进行memset 以便更新client 信息。避免掉线不能重连。
-		ret = pUdpClient->recvFrom(&audioFrame, sizeof(audioFrame_t), &stAddrClient);
+		ret = pUdpSocket->recvFrom(&audioFrame, sizeof(audioFrame_t), &stAddrClient);
 		if(-1 == ret)
 		{
-			cerr << "Fail to call pUdpClient->recv() in AvtpAudioClient::listening()." << endl;
+			cerr << "Fail to call pUdpSocket->recv() in AvtpAudioClient::listening()." << endl;
 			continue;
 		}
 		else if(ret < sizeof(avtpCmd_t))
@@ -200,14 +202,3 @@ int AvtpAudioClient::listening()
 	return 0;
 }
 
-#if 0
-/*
-	功能：	状态函数，是否允许对讲。
-	返回：	true, 允许；false, 不允许。
-	注意：	
-*/
-bool AvtpAudioClient::isAllowTalking()
-{
-	
-}
-#endif

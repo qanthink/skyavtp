@@ -20,8 +20,9 @@ using namespace std;
 AvtpVideoClient::AvtpVideoClient(const char * serverIP)
 {
 	bRunning = true;
-	pUdpClient = make_shared<UdpClient>(serverIP, avtpPort);
+	pUdpSocket = make_shared<UdpSocket>(serverIP, mAvtpPort);
 	pThClientRecv = make_shared<thread>(thListening, this);
+	mServerIP = serverIP;
 }
 
 AvtpVideoClient::~AvtpVideoClient()
@@ -34,7 +35,8 @@ AvtpVideoClient::~AvtpVideoClient()
 		pThClientRecv = NULL;
 	}
 	
-	pUdpClient = NULL;
+	pUdpSocket = NULL;
+	mServerIP = NULL;
 }
 
 int AvtpVideoClient::thListening(void *pThis)
@@ -51,7 +53,7 @@ int AvtpVideoClient::listening()
 {
 	// 获取套接字文件描述，并放入监听列表。
 	int sfd = 0;
-	sfd = pUdpClient->getSocketFd();
+	sfd = pUdpSocket->getSocketFd();
 	fd_set fdset;
 	FD_ZERO(&fdset);
 	FD_SET(sfd, &fdset);
@@ -63,6 +65,11 @@ int AvtpVideoClient::listening()
 	// 避免在循环体内初始化数据，避免时间开销。
 	int ret = 0;
 	avtpCmd_t avtpCmd;
+	struct sockaddr_in stAddrServer;
+	memset(&stAddrServer, 0, sizeof(struct sockaddr_in));
+	stAddrServer.sin_family = AF_INET;
+	stAddrServer.sin_port = htons(mAvtpPort);
+	stAddrServer.sin_addr.s_addr = inet_addr(mServerIP);
 	
 	while(bRunning)
 	{
@@ -89,17 +96,11 @@ int AvtpVideoClient::listening()
 		}
 
 		// step2 接收数据。
-		struct sockaddr_in stAddrServer;
-		memset(&stAddrServer, 0, sizeof(struct sockaddr_in));
-		stAddrServer.sin_family = AF_INET;
-		stAddrServer.sin_port = htons(ATP_PORT);
-		stAddrServer.sin_addr.s_addr = inet_addr("192.168.0.200");
-		//pUdpClient->sendto(&audioFrame, sizeof(audioFrame_t), &stAddrServer);
 		memset(&avtpCmd, 0, sizeof(avtpCmd_t));
-		ret = pUdpClient->recvFrom(&avtpCmd, sizeof(avtpCmd_t), &stAddrServer);
+		ret = pUdpSocket->recvFrom(&avtpCmd, sizeof(avtpCmd_t), &stAddrServer);
 		if(-1 == ret)
 		{
-			cerr << "Fail to call pUdpClient->recv() in AvtpVideoClient::listening()." << endl;
+			cerr << "Fail to call pUdpSocket->recvFrom() in AvtpVideoClient::listening()." << endl;
 			continue;
 		}
 		else if(ret < sizeof(avtpCmd_t))
@@ -174,16 +175,21 @@ int AvtpVideoClient::videoSliceGroupClear()
 	功能：	发送视频帧。
 	注意：	
 */
-int AvtpVideoClient::sendVideoFrame(const void *frameBuf, const unsigned int frameBufLen)
+int AvtpVideoClient::sendVideoFrame(const void *buf, size_t len)
 {
 	//cout << "Call AvtpVideoClient::sendVideoFrame()." << endl;
-	
-	//memset(&videoSliceGroup, 0, sizeof(videoSliceGroup_t));	// 为了缩短时间，暂时不做memset.
+
 	unsigned sliceNum = 0;
-	sliceNum = pushFrameIntoGroup(frameBuf, frameBufLen);
+	sliceNum = pushFrameIntoGroup(buf, len);
 
 	int i = 0;
 	bool bFirstSend = true;
+	struct sockaddr_in stAddrServer;
+	memset(&stAddrServer, 0, sizeof(struct sockaddr_in));
+	stAddrServer.sin_family = AF_INET;
+	stAddrServer.sin_port = htons(mAvtpPort);
+	stAddrServer.sin_addr.s_addr = inet_addr(mServerIP);
+	
 	do{
 		for(i = 0; i < sliceNum; ++i)
 		{
@@ -191,18 +197,11 @@ int AvtpVideoClient::sendVideoFrame(const void *frameBuf, const unsigned int fra
 			if(avtpDataType::TYPE_AV_VIDEO == videoSliceGroup.videoSlice[i].avtpDataType)
 			{
 				//cout << "send. " << i << endl;
-				struct sockaddr_in stAddrServer;
-				memset(&stAddrServer, 0, sizeof(struct sockaddr_in));
-				stAddrServer.sin_family = AF_INET;
-				stAddrServer.sin_port = htons(VTP_PORT);
-				stAddrServer.sin_addr.s_addr = inet_addr("192.168.0.200");
-				//pUdpClient->sendto1(&audioFrame, sizeof(audioFrame_t), &stAddrServer);
-				pUdpClient->sendto1(videoSliceGroup.videoSlice + i, sizeof(videoSlice_t), &stAddrServer);
+				pUdpSocket->sendTo(videoSliceGroup.videoSlice + i, sizeof(videoSlice_t), &stAddrServer);
 				++sendCnt;
 				bFirstSend ? 0 : ++resendCnt;
 			}
 			mMtx.unlock();
-			//this_thread::sleep_for(chrono::nanoseconds(1));
 		}
 
 		bFirstSend = false;
@@ -277,7 +276,7 @@ int AvtpVideoClient::pushFrameIntoGroup(const void *frameBuf, const unsigned int
 	int i = 0;
 	unsigned int cpyBytes = 0;
 	const unsigned int sliceNum = calculateSliceNum(frameBufLen);
-
+	memset(&videoSliceGroup, 0, sizeof(videoSliceGroup_t));
 	for(i = 0; i < sliceNum; ++i)
 	{
 		unsigned int thisCpyBytes = 0;

@@ -6,7 +6,8 @@
 #include <fstream>
 #include <iostream>
 #include "vdecoder.h"
-#include "avtp_server.h"
+#include "atp_server.h"
+#include "vtp_server.h"
 #include "displayer.h"
 
 void YUV420_to_RGB(unsigned char* pYUV, unsigned char* pRGB, int width, int height);

@@ -21,7 +21,7 @@ AvtpVideoServer::AvtpVideoServer(const char * serverIP)
 	cout << "Call AvtpVideoServer::AvtpVideoServer()." << endl;
 	
 	bRunning = true;
-	pUdpServer = make_shared<UdpServer>(serverIP, avtpPort);
+	pUdpSocket = make_shared<UdpSocket>(serverIP, avtpPort);
 	pThServerRecv = make_shared<thread>(thListening, this);
 	
 	cout << "Call AvtpVideoServer::AvtpVideoServer() end." << endl;
@@ -39,7 +39,7 @@ AvtpVideoServer::~AvtpVideoServer()
 		pThServerRecv = NULL;
 	}
 
-	pUdpServer = NULL;
+	pUdpSocket = NULL;
 	cout << "Call AvtpVideoServer::~AvtpVideoServer() end." << endl;
 }
 
@@ -53,9 +53,9 @@ bool AvtpVideoServer::addClient(string clientIP)
 	cout << "Call AvtpVideoServer::addClient()." << endl;
 
 	mMtx.lock(); 	// 获得锁;
-	pair<map<string, shared_ptr<ClientProc>>::iterator, bool> ret;
-	shared_ptr<ClientProc> pClientProc(new ClientProc);
-	ret = clientPool.insert(make_pair(clientIP, pClientProc));
+	pair<map<string, shared_ptr<VideoClientProc>>::iterator, bool> ret;
+	shared_ptr<VideoClientProc> pVideoClientProc(new VideoClientProc);
+	ret = clientPool.insert(make_pair(clientIP, pVideoClientProc));
 	mMtx.unlock();
 
 	return true;
@@ -86,16 +86,17 @@ bool AvtpVideoServer::queryClient(string clientIP)
 	//cout << "Call AvtpVideoServer::queryClient()." << endl;
 
 	mMtx.lock(); 	// 获得锁;
-	map<string , shared_ptr<ClientProc>>::iterator it;
+	map<string , shared_ptr<VideoClientProc>>::iterator it;
 	it = clientPool.find(clientIP);
-	mMtx.unlock();
 	
 	if(clientPool.end() == it)
 	{
+		mMtx.unlock();
 		return false;
 	}
 	else
 	{
+		mMtx.unlock();
 		return true;
 	}
 }
@@ -105,12 +106,12 @@ bool AvtpVideoServer::queryClient(string clientIP)
 	返回：	返回帧数据长度。
 	注意：	
 */
-int AvtpVideoServer::recvVideoFrame(string clientIp, void *frameBuf, const unsigned int frameBufSize)
+int AvtpVideoServer::recvVideoFrame(string clientIp, void *buf, size_t len)
 {
 	//cout << "Call AvtpVideoServer::recvVideoFrame()." << endl;
 	
 	int frameRealSize = 0;
-	frameRealSize = clientPool[clientIp]->popFrame(frameBuf, frameBufSize);
+	frameRealSize = clientPool[clientIp]->popFrame(buf, len);
 	
 	//cout << "Call AvtpVideoServer::recvVideoFrame() end." << endl;
 	return frameRealSize;
@@ -130,7 +131,7 @@ int AvtpVideoServer::listening()
 {
 	// 设置要监听的套接字。
 	int sfd = 0;
-	sfd = pUdpServer->getSocketFd();
+	sfd = pUdpSocket->getSocketFd();
 	fd_set fdset;
 	FD_ZERO(&fdset);
 	
@@ -173,11 +174,11 @@ int AvtpVideoServer::listening()
 
 		// step2 接收数据。
 		memset(&videoSlice, 0, sizeof(videoSlice_t));
-		memset(&stAddrClient, 0, sizeof(struct sockaddr));		// 必须进行memset 以便更新client 信息。避免掉线不能重连。
-		ret = pUdpServer->recv(&videoSlice, sizeof(videoSlice_t), &stAddrClient);
+		memset(&stAddrClient, 0, sizeof(struct sockaddr));
+		ret = pUdpSocket->recvFrom(&videoSlice, sizeof(videoSlice_t), &stAddrClient);
 		if(-1 == ret)
 		{
-			cerr << "Fail to call pUdpServer->recv() in AvtpVideoServer::listening()." << endl;
+			cerr << "Fail to call pUdpSocket->recvFrom() in AvtpVideoServer::listening()." << endl;
 			continue;
 		}
 		else if(ret < sizeof(avtpCmd_t))
@@ -214,7 +215,7 @@ int AvtpVideoServer::listening()
 
 				if(!clientPool[clientIp]->sliceQueue.isFull())
 				{
-					pUdpServer->send(&avtpCmd, sizeof(avtpCmd_t), &stAddrClient);
+					pUdpSocket->sendTo(&avtpCmd, sizeof(avtpCmd_t), &stAddrClient);
 					clientPool[clientIp]->sliceQueue.push(&videoSlice);
 					sem_post(&clientPool[clientIp]->sem);
 					//cout << "post end." << endl;
@@ -244,18 +245,19 @@ int AvtpVideoServer::listening()
 	return 0;
 }
 
-ClientProc::ClientProc()
+VideoClientProc::VideoClientProc()
 {
-	cout << "Call AvtpVideoServer::ClientProc()." << endl;
+	cout << "Call AvtpVideoServer::VideoClientProc()." << endl;
 	sliceQueue.setQueueDepth(queueDepths);
 	sem_init(&sem, 0, 0);
-	cout << "Call AvtpVideoServer::ClientProc() end." << endl;
+	cout << "Call AvtpVideoServer::VideoClientProc() end." << endl;
 }
 
-ClientProc::~ClientProc()
+VideoClientProc::~VideoClientProc()
 {
-	cout << "Call AvtpVideoServer::~ClientProc()." << endl;
-	cout << "Call AvtpVideoServer::~ClientProc() end." << endl;
+	cout << "Call AvtpVideoServer::~VideoClientProc()." << endl;
+	sem_destroy(&sem);
+	cout << "Call AvtpVideoServer::~VideoClientProc() end." << endl;
 }
 
 
@@ -264,16 +266,15 @@ ClientProc::~ClientProc()
 	返回：	返回帧的长度。
 	注意：	Frame, group 概念参考AVTP 数据类型。
 */
-int ClientProc::popFrame(void *frameBuf, const unsigned int frameBufLen)
+int VideoClientProc::popFrame(void *buf, size_t len)
 {
-	//cout << "Call ClientProc::popFrame()." << endl;
+	//cout << "Call VideoClientProc::popFrame()." << endl;
 
 	unsigned int frameSize = 0;
 	while(!((frameSize == videoSliceGroup.videoSlice[0].frameSize) && 
 		(0 != frameSize)))		// 未来需要考虑停用协议时，如何跳出while 循环。
 	{
 		frameSize = 0;
-		//std::this_thread::sleep_for(std::chrono::nanoseconds(1));
 		// 步骤一：从sliceQueue 中取数据出来。
 		int ret = 0;
 		videoSlice_t videoSlice = {0};
@@ -285,7 +286,6 @@ int ClientProc::popFrame(void *frameBuf, const unsigned int frameBufLen)
 			//cerr << "sliceQueue is empty or abnormal." << endl;
 			continue;
 		}
-		//continue;
 
 		//cout << "videoSlice.frameID, expFrameID = " << videoSlice.frameID << ", " << expFrameID << endl;
 		// 步骤二：判断slice 要不要放入sliceGroup, 以及sliceGroup 是否要清除数据。
@@ -399,7 +399,7 @@ int ClientProc::popFrame(void *frameBuf, const unsigned int frameBufLen)
 		{
 			break;
 		}
-		memcpy(frameBuf + cpyBytes, pSlice->sliceBuf, pSlice->sliceSize);
+		memcpy(buf + cpyBytes, pSlice->sliceBuf, pSlice->sliceSize);
 		cpyBytes += pSlice->sliceSize;
 		++pSlice;
 	}

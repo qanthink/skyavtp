@@ -12,23 +12,23 @@ xxx 版权所有。
 #include <condition_variable>
 
 #include "myqueue.h"
-#include "udp_server.h"
+#include "udp_socket.h"
 #include "avtp_datatype.h"
 
 class AvtpAudioClient
 {
 public:
-	AvtpAudioClient(const char *serverIp);
+	AvtpAudioClient(const char *serverIP);
 	~AvtpAudioClient();
 
-	int sendAudioFrame(const void *frameBuf, const unsigned int frameBufLen);
-	int recvAudioFrame(void *frameBuf, const unsigned int frameBufLen);
+	int sendAudioFrame(const void *buf, size_t len);
+	int recvAudioFrame(void *buf, size_t len);
 	bool isAllowTalking(){return bAllowTalking;};
-	AvtpAudioClient *getInstance(){return this;};
 
 private:
-	std::shared_ptr<UdpClient> pUdpClient = NULL;	// 指向UDP Socket 对象。
+	const char *mServerIP = NULL;					// 服务器地址。
 	const unsigned short avtpPort = ATP_PORT;		// AVTP 端口号
+	std::shared_ptr<UdpSocket> pUdpSocket = NULL;	// 指向UDP Socket 对象。
 	
 	// 服务器接收线程，用于监听客户端的消息。
 	int listening();

@@ -13,18 +13,24 @@ xxx 版权所有。
 #pragma comment(lib, "ws2_32.lib")
 #elif defined(__linux__)
 #include <arpa/inet.h>
-#include <stddef.h>
 #endif
 
-class UdpClient{
+#ifdef _WIN64
+#include <Ws2tcpip.h>
+#elif defined(__linux__)
+#endif
+
+class UdpSocket{
 public:
-	UdpClient(const char *serverIP, const unsigned short ipPort);		// 用构造函数创建套接字。
-	~UdpClient();
+	UdpSocket(const char *localIP, const unsigned short ipPort);				// 用构造函数创建套接字。
+	~UdpSocket();
 
-	int sendto1(const void *const dataBuf, const int dataSize, const struct sockaddr_in *pstAddrClient);			// 发送UDP 数据。
-	int recvFrom(void *const dataBuf, const int dataSize, struct sockaddr_in *pstAddrClient);					// 以阻塞方式接收UDP 数据。
+	// 发送UDP 数据。
+	int sendTo(const void *buf, size_t len, const struct sockaddr_in *pstDstAddr);
+	// 以阻塞方式接收UDP 数据。
+	int recvFrom(void *buf, size_t len, struct sockaddr_in *pstSrcAddr);
 
-	int setSendBufLen(const unsigned int sendBufLen = 2 * 1024 * 1024);	// 设置UDP 发送缓冲区的大小。
+	int setSendBufLen(const unsigned int sendBufLen = 1 * 1024 * 1024);	// 设置UDP 发送缓冲区的大小。
 	int setRecvBufLen(const unsigned int recvBufLen = 1 * 1024 * 1024);	// 设置UDP 接收缓冲区的大小。
 
 	const int getSocketFd() const {return sfd;};
@@ -37,7 +43,6 @@ private:
 #endif
 	bool bInit = false;
 	unsigned short mIpPort = 0;
-	const char *mServerIP = NULL;
-	struct sockaddr_in stAddrServer;
+	const char *mLocalIP = NULL;
 };
 

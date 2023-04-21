@@ -23,7 +23,7 @@ AvtpAudioServer::AvtpAudioServer(const char * serverIP)
 	cout << "Call AvtpAudioServer::AvtpAudioServer()." << endl;
 	
 	bRunning = true;
-	pUdpServer = make_shared<UdpServer>(serverIP, avtpPort);
+	pUdpSocket = make_shared<UdpSocket>(serverIP, avtpPort);
 	pThServerRecv = make_shared<thread>(thListening, this);
 	
 	cout << "Call AvtpAudioServer::AvtpAudioServer() end." << endl;
@@ -41,7 +41,7 @@ AvtpAudioServer::~AvtpAudioServer()
 		pThServerRecv = NULL;
 	}
 
-	pUdpServer = NULL;
+	pUdpSocket = NULL;
 	cout << "Call AvtpAudioServer::~AvtpAudioServer() end." << endl;
 }
 
@@ -94,30 +94,30 @@ bool AvtpAudioServer::queryClient(string clientIP)
 	
 	if(clientPool.end() == it)
 	{
+		mMtx.unlock();
 		return false;
 	}
 	else
 	{
+		mMtx.unlock();
 		return true;
 	}
 }
-
-struct sockaddr_in stAddrClient;
 
 /*
 	功能：	发送消息。
 	返回：	
 	注意：	
 */
-int AvtpAudioServer::sendMessage(std::string clientIp, avtpCmd_t *pAvtpCmd)
+int AvtpAudioServer::sendMessage(std::string clientIp, const avtpCmd_t *pAvtpCmd)
 {
-	//struct sockaddr_in stAddrClient;
-	//memset(&stAddrClient, 0, sizeof(struct sockaddr));
-	stAddrClient.sin_family = AF_INET;								// 设置地址家族
-	//stAddrClient.sin_port = htons(ATP_PORT);
-	stAddrClient.sin_addr.s_addr = inet_addr(clientIp.c_str());		//设置
-	pUdpServer->send(pAvtpCmd, sizeof(avtpCmd_t), &stAddrClient);
-	
+	struct sockaddr_in stAddrClient;
+	memset(&stAddrClient, 0, sizeof(struct sockaddr_in));
+	stAddrClient.sin_family = AF_INET;
+	stAddrClient.sin_port = htons(avtpPort);
+	stAddrClient.sin_addr.s_addr = inet_addr(clientIp.c_str());
+
+	pUdpSocket->sendTo(pAvtpCmd, sizeof(avtpCmd_t), &stAddrClient);
 	return 0;
 }
 
@@ -126,22 +126,22 @@ int AvtpAudioServer::sendMessage(std::string clientIp, avtpCmd_t *pAvtpCmd)
 	返回：	
 	注意：	
 */
-int AvtpAudioServer::sendAudioFrame(std::string clientIp, const void *frameBuf, const unsigned int frameBufLen)
+int AvtpAudioServer::sendAudioFrame(std::string clientIp, const void *buf, size_t len)
 {
 	//cout << "Call AvtpAudioServer::sendAudioFrame()." << endl;
 	mMtx.lock();
 	audioFrame.avtpDataType = avtpDataType::TYPE_AV_AUDIO;
 	audioFrame.frameID = 0;
-	audioFrame.frameSize = frameBufLen;
-	memcpy(audioFrame.dataBuf, frameBuf, frameBufLen);
+	audioFrame.frameSize = len;
+	memcpy(audioFrame.dataBuf, buf, len);
 	mMtx.unlock();
 
 	struct sockaddr_in stAddrClient;
 	memset(&stAddrClient, 0, sizeof(struct sockaddr));
-	stAddrClient.sin_port = htons(ATP_PORT);
-	stAddrClient.sin_family = AF_INET;  // 设置地址家族
-	stAddrClient.sin_addr.s_addr = inet_addr(clientIp.c_str());  //设置
-	pUdpServer->send(&audioFrame, sizeof(audioFrame_t), &stAddrClient);
+	stAddrClient.sin_port = htons(avtpPort);
+	stAddrClient.sin_family = AF_INET;								// 设置地址家族
+	stAddrClient.sin_addr.s_addr = inet_addr(clientIp.c_str());		//设置
+	pUdpSocket->sendTo(&audioFrame, sizeof(audioFrame_t), &stAddrClient);
 
 	//cout << "Call AvtpAudioServer::sendAudioFrame() end." << endl;
 	return 0;
@@ -152,12 +152,12 @@ int AvtpAudioServer::sendAudioFrame(std::string clientIp, const void *frameBuf, 
 	返回：	返回音频帧数据长度。
 	注意：	
 */
-int AvtpAudioServer::recvAudioFrame(string clientIp, void *frameBuf, const unsigned int frameBufSize)
+int AvtpAudioServer::recvAudioFrame(string clientIp, void *buf, size_t len)
 {
 	//cout << "Call AvtpAudioServer::recvAudioFrame()." << endl;
 	
 	int frameRealSize = 0;
-	frameRealSize = clientPool[clientIp]->popFrame(frameBuf, frameBufSize);
+	frameRealSize = clientPool[clientIp]->popFrame(buf, len);
 	
 	//cout << "Call AvtpAudioServer::recvAudioFrame() end." << endl;
 	return frameRealSize;
@@ -177,7 +177,7 @@ int AvtpAudioServer::listening()
 {
 	// 设置要监听的套接字。
 	int sfd = 0;
-	sfd = pUdpServer->getSocketFd();
+	sfd = pUdpSocket->getSocketFd();
 	fd_set fdset;
 	FD_ZERO(&fdset);
 	
@@ -188,7 +188,7 @@ int AvtpAudioServer::listening()
 	// 避免在循环体内初始化数据，减小时间开销。
 	avtpCmd_t avtpCmd;
 	audioFrame_t audioFrame;
-	//struct sockaddr_in stAddrClient;
+	struct sockaddr_in stAddrClient;
 
 	int ret = 0;
 	const unsigned int ipLen = 16;
@@ -221,10 +221,10 @@ int AvtpAudioServer::listening()
 		// step2 接收数据。
 		memset(&audioFrame, 0, sizeof(audioFrame_t));
 		memset(&stAddrClient, 0, sizeof(struct sockaddr));		// 必须进行memset 以便更新client 信息。避免掉线不能重连。
-		ret = pUdpServer->recv(&audioFrame, sizeof(audioFrame_t), &stAddrClient);
+		ret = pUdpSocket->recvFrom(&audioFrame, sizeof(audioFrame_t), &stAddrClient);
 		if(-1 == ret)
 		{
-			cerr << "Fail to call pUdpServer->recv() in AvtpAudioServer::listening()." << endl;
+			cerr << "Fail to call pUdpSocket->recvFrom() in AvtpAudioServer::listening()." << endl;
 			continue;
 		}
 		else if(ret < sizeof(avtpCmd_t))
@@ -254,15 +254,9 @@ int AvtpAudioServer::listening()
 		{
 			case avtpDataType::TYPE_AV_AUDIO:
 			{
-				//cout << "IP: " << clientIp << ", freame ID = " << audioFrame.frameID << endl;
-				memset(&avtpCmd, 0, sizeof(avtpCmd_t));
-				//avtpCmd.avtpDataType = avtpDataType::TYPE_CMD_ACK;
-				//avtpCmd.avtpDataType = 999;
-				//avtpCmd.avtpData[0] = audioFrame.frameID;
-
 				if(!clientPool[clientIp]->frameQueue.isFull())
 				{
-					pUdpServer->send(&avtpCmd, sizeof(avtpCmd_t), &stAddrClient);
+					pUdpSocket->sendTo(&avtpCmd, sizeof(avtpCmd_t), &stAddrClient);
 					clientPool[clientIp]->frameQueue.push(&audioFrame);
 					sem_post(&clientPool[clientIp]->sem);
 					//cout << "post end." << endl;
@@ -311,16 +305,16 @@ AudioClientProc::AudioClientProc()
 AudioClientProc::~AudioClientProc()
 {
 	cout << "Call AvtpAudioServer::~AudioClientProc()." << endl;
+	sem_destroy(&sem);
 	cout << "Call AvtpAudioServer::~AudioClientProc() end." << endl;
 }
-
 
 /*
 	功能：	将Frame 数据从队列中取出来。
 	返回：	返回帧的长度。
 	注意：	
 */
-int AudioClientProc::popFrame(void *frameBuf, const unsigned int frameBufLen)
+int AudioClientProc::popFrame(void *buf, const unsigned int frameBufLen)
 {
 	//cout << "Call AudioClientProc::popFrame()." << endl;
 	audioFrame_t audioFrame = {0};
@@ -346,11 +340,11 @@ int AudioClientProc::popFrame(void *frameBuf, const unsigned int frameBufLen)
 	unsigned int frameSize = 0;
 	if(frameBufLen < audioFrame.frameSize)
 	{
-		cerr << "Fail to call AudioClientProc::popFrame(). Argument frameBuf has no enough space." << endl;
+		cerr << "Fail to call AudioClientProc::popFrame(). Argument buf has no enough space." << endl;
 		return 0;
 	}
 	
-	memcpy(frameBuf, audioFrame.dataBuf, audioFrame.frameSize);
+	memcpy(buf, audioFrame.dataBuf, audioFrame.frameSize);
 	return audioFrame.frameSize;
 }
 

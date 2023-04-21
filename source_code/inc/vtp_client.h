@@ -9,7 +9,7 @@ xxx 版权所有。
 #include <thread>
 #include <condition_variable>
 
-#include "udp_client.h"
+#include "udp_socket.h"
 #include "avtp_datatype.h"
 
 class AvtpVideoClient
@@ -20,11 +20,12 @@ public:
 
 	double getLossRate();
 	int changeFps10s(unsigned int fps);
-	int sendVideoFrame(const void *frameBuf, const unsigned int frameBufLen);
+	int sendVideoFrame(const void *buf, size_t len);
 
 private:
-	std::shared_ptr<UdpClient> pUdpClient = NULL;	// 指向UDP Socket 对象。
-	const unsigned short avtpPort = VTP_PORT;		// 传输协议端口。
+	const char *mServerIP = NULL;					// 服务器地址。
+	const unsigned short mAvtpPort = VTP_PORT;		// 传输协议端口。
+	std::shared_ptr<UdpSocket> pUdpSocket = NULL;	// 指向UDP Socket 对象。
 
 	// 客户端线程，用于监听服务器发出的指令。
 	int listening();

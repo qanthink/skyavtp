@@ -1,7 +1,5 @@
 #pragma once
 
-#include "udp_client.h"
-
 #define ATP_PORT 2000
 #define VTP_PORT 2001
 #define SLICE_HEAD_SIZE (8 * 4)

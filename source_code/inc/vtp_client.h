@@ -24,7 +24,7 @@ public:
 
 private:
 	std::shared_ptr<UdpClient> pUdpClient = NULL;	// 指向UDP Socket 对象。
-	const unsigned short avtpPort = AVTP_PORT;		// 传输协议端口。
+	const unsigned short avtpPort = VTP_PORT;		// 传输协议端口。
 
 	// 客户端线程，用于监听服务器发出的指令。
 	int listening();

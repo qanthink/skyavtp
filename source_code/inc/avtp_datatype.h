@@ -2,7 +2,8 @@
 
 #include "udp_client.h"
 
-#define AVTP_PORT 1000
+#define ATP_PORT 2000
+#define VTP_PORT 2001
 #define SLICE_HEAD_SIZE (8 * 4)
 
 /*
@@ -20,13 +21,16 @@ class avtpDataType{
 public:
 	const static unsigned int TYPE_INVALID = 0;
 	
-	const static unsigned int TYPE_CMD_ACK = 1;
-	const static unsigned int TYPE_CMD_ReqHand = 2;
-	const static unsigned int TYPE_CMD_AgeHand = 3;
-	const static unsigned int TYPE_CMD_ReqNextFrm = 4;
+	const static unsigned int TYPE_CMD_ACK = 0x01;
+	const static unsigned int TYPE_CMD_ReqHand = 0x02;
+	const static unsigned int TYPE_CMD_AgeHand = 0x03;
+	const static unsigned int TYPE_CMD_ReqNextFrm = 0x04;
+
+	const static unsigned int TYPE_CMD_ReqStartTalk = 0x05;
+	const static unsigned int TYPE_CMD_ReqStopTalk = 0x06;
 	
-	const static unsigned int TYPE_AV_AUDIO = 8;
-	const static unsigned int TYPE_AV_VIDEO = 9;
+	const static unsigned int TYPE_AV_AUDIO = 0x10;
+	const static unsigned int TYPE_AV_VIDEO = 0x11;
 };
 
 class avtpCmd_t{
@@ -59,6 +63,33 @@ public:
 		avtpData[1] 预留.
 		avtpData[2] 预留.
 */
+
+/*
+	TYPE_AV_AUDIO:
+	
+	UDP包的正文内容，需要限制在548 Bytes以内(Internet环境)，或1472 Bytes 以内(局域网环境)。
+	在一片Slice 中，一部分字节用作了私有协议头，所以留给视频数据的空间不足548(或1472) Bytes.
+	本协议约定数据头占32 Bytes字节，则视频数据的长度为516(或1440) Bytes.
+*/
+class audioFrame_t{
+public:
+	//const static unsigned int bufMaxSize = 1440;
+	const static unsigned int bufMaxSize = 1440 * 2;
+
+	audioFrame_t(int arg = 0){}
+
+public:
+	unsigned int avtpDataType = avtpDataType::TYPE_INVALID;	// 第0个int: 数据类型。
+	unsigned int frameID = 0;								// 第1个int: 帧ID, 唯一标识一个Frame.
+	unsigned int reserve0 = 0;								// 第2个int: 保留。
+	unsigned int frameSize = 0;								// 第3个int: 帧长度。
+	unsigned int reserve1 = 0;								// 第4个int: 保留。
+	unsigned int reserve2 = 0;								// 第5个int: 保留。
+	unsigned int reserve3 = 0;								// 第6个int: 保留。
+	unsigned int reserve4 = 0;								// 第7个int: 保留。
+	unsigned char dataBuf[bufMaxSize];						// 第8个int起: 音频数据。
+};
+
 
 /*
 	TYPE_AV_VIDEO:

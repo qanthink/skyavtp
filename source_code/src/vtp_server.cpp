@@ -8,7 +8,7 @@
 */
 
 #include <iostream>
-#include "avtp_server.h"
+#include "vtp_server.h"
 
 using namespace std;
 
@@ -228,9 +228,14 @@ int AvtpVideoServer::listening()
 				}
 				break;
 			}
+			case avtpDataType::TYPE_AV_AUDIO:
+			{
+				cerr << "Receive audio data in AvtpVideoServer." << endl;
+				break;
+			}
 			default:
 			{
-				cout << "In AvtpVideoServer::listening(). Received bad date." << endl;
+				//cout << "In AvtpVideoClient::listening(). Received datetype = " << videoSlice.avtpDataType << endl;
 				break;
 			}
 		}

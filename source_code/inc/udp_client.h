@@ -21,8 +21,8 @@ public:
 	UdpClient(const char *serverIP, const unsigned short ipPort);		// 用构造函数创建套接字。
 	~UdpClient();
 
-	int send(const void *const dataBuf, const int dataSize);			// 发送UDP 数据。
-	int recv(void *const dataBuf, const int dataSize);					// 以阻塞方式接收UDP 数据。
+	int sendto1(const void *const dataBuf, const int dataSize, const struct sockaddr_in *pstAddrClient);			// 发送UDP 数据。
+	int recvFrom(void *const dataBuf, const int dataSize, struct sockaddr_in *pstAddrClient);					// 以阻塞方式接收UDP 数据。
 
 	int setSendBufLen(const unsigned int sendBufLen = 2 * 1024 * 1024);	// 设置UDP 发送缓冲区的大小。
 	int setRecvBufLen(const unsigned int recvBufLen = 1 * 1024 * 1024);	// 设置UDP 接收缓冲区的大小。

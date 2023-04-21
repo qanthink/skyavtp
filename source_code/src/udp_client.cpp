@@ -37,9 +37,9 @@ UdpClient::UdpClient(const char *serverIP, const unsigned short ipPort)
 	memset(&stAddrServer, 0, sizeof(struct sockaddr_in));
 	stAddrServer.sin_family = AF_INET;
 	stAddrServer.sin_port = htons(ipPort);
-	stAddrServer.sin_addr.s_addr = inet_addr(serverIP);
+	stAddrServer.sin_addr.s_addr = htonl(INADDR_ANY);
+	//stAddrServer.sin_addr.s_addr = inet_addr(serverIP);
 	//inet_pton(AF_INET, serverIP, (void *)&stAddrServer.sin_addr.s_addr);
-
 	int ret = 0;
 #ifdef _WIN64
 	// Windows 初始化网络
@@ -59,6 +59,17 @@ UdpClient::UdpClient(const char *serverIP, const unsigned short ipPort)
 	{
 		cerr << "Fail to call socket()." << endl;
 	}
+
+	#if 1
+	// bind();	// 主动端可省略绑定。
+	ret = bind(sfd, (struct sockaddr *)&stAddrServer, sizeof(struct sockaddr));
+	if(-1 == ret)
+	{
+		cerr << "Fail to call bind()." << endl;
+		cerr << " " << strerror(errno) << endl;
+		return;
+	}
+	#endif
 
 	bInit = true;
 
@@ -105,11 +116,11 @@ UdpClient::~UdpClient()
 	返回：	成功，返回字节数；失败，返回-1；
 	注意：	
 */
-int UdpClient::send(const void *const dataBuf, const int dataSize)
+int UdpClient::sendto1(const void *const dataBuf, const int dataSize, const struct sockaddr_in *pstAddrClient)
 {
 	//cout << "Call UdpClient::send()." << endl;
 
-	if(NULL == dataBuf)
+	if(NULL == dataBuf || NULL == pstAddrClient)
 	{
 		cerr << "Fail to call UdpClient::send(). Arugument has null value." << endl;
 		return -1;
@@ -122,7 +133,7 @@ int UdpClient::send(const void *const dataBuf, const int dataSize)
 	}
 
 	int ret = 0;
-	ret = sendto(sfd, (char *)dataBuf, dataSize, 0, (struct sockaddr*)&stAddrServer, sizeof(struct sockaddr));
+	ret = sendto(sfd, (char *)dataBuf, dataSize, 0, (struct sockaddr*)pstAddrClient, sizeof(struct sockaddr));
 	if(-1 == ret)
 	{
 #ifdef _WIN64
@@ -149,7 +160,7 @@ int UdpClient::send(const void *const dataBuf, const int dataSize)
 	返回：	成功，返回字节数；失败，返回-1；
 	注意：	
 */
-int UdpClient::recv(void *const dataBuf, const int dataSize)
+int UdpClient::recvFrom(void *const dataBuf, const int dataSize, struct sockaddr_in *pstAddrClient)
 {
 	//cout << "Call UdpClient::recv()." << endl;
 	//ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags, struct sockaddr *src_addr, socklen_t *addrlen);
@@ -160,7 +171,7 @@ int UdpClient::recv(void *const dataBuf, const int dataSize)
 	socklen_t sockLen = 0;
 #endif
 	sockLen = sizeof(struct sockaddr);
-	ret = recvfrom(sfd, (char *)dataBuf, dataSize, 0, (struct sockaddr *)&stAddrServer, &sockLen);
+	ret = recvfrom(sfd, (char *)dataBuf, dataSize, 0, (struct sockaddr *)pstAddrClient, &sockLen);
 	if(-1 == ret)
 	{
 #ifdef _WIN64

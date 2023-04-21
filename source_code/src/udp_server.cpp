@@ -60,6 +60,7 @@ UdpServer::UdpServer(const char *serverIP, const unsigned short ipPort)
 		cerr << "Fail to call socket()." << endl;
 	}
 
+#if 1
 	// bind();	// 主动端可省略绑定。
 	ret = bind(sfd, (struct sockaddr *)&stAddrServer, sizeof(struct sockaddr));
 	if(-1 == ret)
@@ -68,7 +69,8 @@ UdpServer::UdpServer(const char *serverIP, const unsigned short ipPort)
 		cerr << " " << strerror(errno) << endl;
 		return;
 	}
-		
+#endif
+
 	bInit = true;
 
 	/*	套接字缓存区对UDP 性能影响很大，系统默认只有65536Bytes = 64KB. 不足以缓存数秒堆积的视频数据。
@@ -131,7 +133,7 @@ int UdpServer::send(const void *const dataBuf, const int dataSize, const struct 
 	}
 
 	int ret = 0;
-	ret = sendto(sfd, (char *)dataBuf, dataSize, 0, (struct sockaddr *)pstAddrClient, sizeof(struct sockaddr));
+	ret = sendto(sfd, (char *)dataBuf, dataSize, 0, (struct sockaddr*)pstAddrClient, sizeof(struct sockaddr));
 	if(-1 == ret)
 	{
 #ifdef _WIN64

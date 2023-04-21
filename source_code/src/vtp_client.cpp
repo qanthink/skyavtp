@@ -9,7 +9,7 @@
 
 #include <iostream>
 #include <string.h>
-#include "avtp_client.h"
+#include "vtp_client.h"
 
 using namespace std;
 
@@ -89,8 +89,14 @@ int AvtpVideoClient::listening()
 		}
 
 		// step2 接收数据。
+		struct sockaddr_in stAddrServer;
+		memset(&stAddrServer, 0, sizeof(struct sockaddr_in));
+		stAddrServer.sin_family = AF_INET;
+		stAddrServer.sin_port = htons(ATP_PORT);
+		stAddrServer.sin_addr.s_addr = inet_addr("192.168.0.200");
+		//pUdpClient->sendto(&audioFrame, sizeof(audioFrame_t), &stAddrServer);
 		memset(&avtpCmd, 0, sizeof(avtpCmd_t));
-		ret = pUdpClient->recv(&avtpCmd, sizeof(avtpCmd_t));
+		ret = pUdpClient->recvFrom(&avtpCmd, sizeof(avtpCmd_t), &stAddrServer);
 		if(-1 == ret)
 		{
 			cerr << "Fail to call pUdpClient->recv() in AvtpVideoClient::listening()." << endl;
@@ -117,7 +123,7 @@ int AvtpVideoClient::listening()
 			}
 			default:
 			{
-				cout << "In AvtpVideoClient::listening(). Received bad date." << endl;
+				cout << "In AvtpVideoClient::listening(). Received datetype = " << avtpCmd.avtpDataType << endl;
 				continue;
 			}
 		}
@@ -185,7 +191,13 @@ int AvtpVideoClient::sendVideoFrame(const void *frameBuf, const unsigned int fra
 			if(avtpDataType::TYPE_AV_VIDEO == videoSliceGroup.videoSlice[i].avtpDataType)
 			{
 				//cout << "send. " << i << endl;
-				pUdpClient->send(videoSliceGroup.videoSlice + i, sizeof(videoSlice_t));
+				struct sockaddr_in stAddrServer;
+				memset(&stAddrServer, 0, sizeof(struct sockaddr_in));
+				stAddrServer.sin_family = AF_INET;
+				stAddrServer.sin_port = htons(VTP_PORT);
+				stAddrServer.sin_addr.s_addr = inet_addr("192.168.0.200");
+				//pUdpClient->sendto1(&audioFrame, sizeof(audioFrame_t), &stAddrServer);
+				pUdpClient->sendto1(videoSliceGroup.videoSlice + i, sizeof(videoSlice_t), &stAddrServer);
 				++sendCnt;
 				bFirstSend ? 0 : ++resendCnt;
 			}

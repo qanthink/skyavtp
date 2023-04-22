@@ -18,7 +18,7 @@ using namespace std;
 	功能：	构造函数。
 	注意：	
 */
-AvtpAudioClient::AvtpAudioClient(const char * serverIP)
+AvtpAudioClient::AvtpAudioClient(const std::string serverIP)
 {
 	cout << "Call AvtpAudioClient::AvtpAudioClient()." << endl;
 	
@@ -43,7 +43,7 @@ AvtpAudioClient::~AvtpAudioClient()
 	}
 
 	pUdpSocket = NULL;
-	mServerIP = NULL;
+	mServerIP = "0.0.0.0";
 	cout << "Call AvtpAudioClient::~AvtpAudioClient() end." << endl;
 }
 
@@ -64,7 +64,7 @@ int AvtpAudioClient::sendAudioFrame(const void *buf, size_t len)
 	memset(&stAddrServer, 0, sizeof(struct sockaddr_in));
 	stAddrServer.sin_family = AF_INET;
 	stAddrServer.sin_port = htons(avtpPort);
-	stAddrServer.sin_addr.s_addr = inet_addr(mServerIP);
+	stAddrServer.sin_addr.s_addr = inet_addr(mServerIP.c_str());
 	pUdpSocket->sendTo(&audioFrame, sizeof(audioFrame_t), &stAddrServer);
 
 	//cout << "Call AvtpAudioClient::sendAudioFrame() end." << endl;

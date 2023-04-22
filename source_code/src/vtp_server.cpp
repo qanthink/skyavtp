@@ -16,7 +16,7 @@ using namespace std;
 	功能：	构造函数。
 	注意：	
 */
-AvtpVideoServer::AvtpVideoServer(const char * serverIP)
+AvtpVideoServer::AvtpVideoServer(const std::string serverIP)
 {
 	cout << "Call AvtpVideoServer::AvtpVideoServer()." << endl;
 	

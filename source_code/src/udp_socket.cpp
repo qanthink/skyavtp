@@ -4,9 +4,6 @@
 时间：2022.3.13
 ----------------------------------------------------------------*/
 
-/*
-*/
-
 #ifdef _WIN64
 #include <Ws2tcpip.h>
 #elif defined(__linux__)
@@ -23,7 +20,7 @@ using namespace std;
 	返回：	返回0.
 	注意：	通常用此带参构造函数完成对象的定义和初始化。
 */
-UdpSocket::UdpSocket(const char *localIP, const unsigned short ipPort)
+UdpSocket::UdpSocket(const std::string localIP, const unsigned short ipPort)
 {
 	cout << "Call UdpSocket::UdpSocket()." << endl;
 
@@ -100,7 +97,7 @@ UdpSocket::~UdpSocket()
 	}
 
 	mIpPort = 0;
-	mLocalIP = NULL;
+	mLocalIP = "0.0.0.0";
 	bInit = false;
 	
 	cout << "Call UdpSocket::~UdpSocket() end." << endl;

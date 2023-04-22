@@ -17,10 +17,10 @@ using namespace std;
 	功能：	构造函数。
 	注意：	
 */
-AvtpVideoClient::AvtpVideoClient(const char * serverIP)
+AvtpVideoClient::AvtpVideoClient(string serverIP)
 {
 	bRunning = true;
-	pUdpSocket = make_shared<UdpSocket>(serverIP, mAvtpPort);
+	pUdpSocket = make_shared<UdpSocket>(serverIP.c_str(), mAvtpPort);
 	pThClientRecv = make_shared<thread>(thListening, this);
 	mServerIP = serverIP;
 }
@@ -36,7 +36,7 @@ AvtpVideoClient::~AvtpVideoClient()
 	}
 	
 	pUdpSocket = NULL;
-	mServerIP = NULL;
+	mServerIP = string("0.0.0.0");
 }
 
 int AvtpVideoClient::thListening(void *pThis)
@@ -69,7 +69,7 @@ int AvtpVideoClient::listening()
 	memset(&stAddrServer, 0, sizeof(struct sockaddr_in));
 	stAddrServer.sin_family = AF_INET;
 	stAddrServer.sin_port = htons(mAvtpPort);
-	stAddrServer.sin_addr.s_addr = inet_addr(mServerIP);
+	stAddrServer.sin_addr.s_addr = inet_addr(mServerIP.c_str());
 	
 	while(bRunning)
 	{
@@ -188,7 +188,7 @@ int AvtpVideoClient::sendVideoFrame(const void *buf, size_t len)
 	memset(&stAddrServer, 0, sizeof(struct sockaddr_in));
 	stAddrServer.sin_family = AF_INET;
 	stAddrServer.sin_port = htons(mAvtpPort);
-	stAddrServer.sin_addr.s_addr = inet_addr(mServerIP);
+	stAddrServer.sin_addr.s_addr = inet_addr(mServerIP.c_str());
 	
 	do{
 		for(i = 0; i < sliceNum; ++i)

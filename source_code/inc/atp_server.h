@@ -33,7 +33,7 @@ private:
 class AvtpAudioServer
 {
 public:
-	AvtpAudioServer(const char *serverIP);
+	AvtpAudioServer(const std::string serverIP);
 	~AvtpAudioServer();
 
 	bool addClient(std::string clientIP);

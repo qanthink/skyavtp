@@ -39,7 +39,7 @@ private:
 class AvtpVideoServer
 {
 public:
-	AvtpVideoServer(const char *serverIP);
+	AvtpVideoServer(const std::string serverIP);
 	~AvtpVideoServer();
 
 	bool addClient(std::string clientIp);

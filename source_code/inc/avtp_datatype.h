@@ -143,4 +143,3 @@ public:
 	videoSlice_t videoSlice[groupMaxSize];
 };
 
-

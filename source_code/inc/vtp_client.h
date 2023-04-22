@@ -15,7 +15,7 @@ xxx 版权所有。
 class AvtpVideoClient
 {
 public:
-	AvtpVideoClient(const char *serverIP);
+	AvtpVideoClient(const std::string serverIP);
 	~AvtpVideoClient();
 
 	double getLossRate();
@@ -23,7 +23,7 @@ public:
 	int sendVideoFrame(const void *buf, size_t len);
 
 private:
-	const char *mServerIP = NULL;					// 服务器地址。
+	std::string mServerIP = "0.0.0.0";				// 服务器地址。
 	const unsigned short mAvtpPort = VTP_PORT;		// 传输协议端口。
 	std::shared_ptr<UdpSocket> pUdpSocket = NULL;	// 指向UDP Socket 对象。
 

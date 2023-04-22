@@ -18,7 +18,7 @@ using namespace std;
 	功能：	构造函数。
 	注意：	
 */
-AvtpAudioServer::AvtpAudioServer(const char * serverIP)
+AvtpAudioServer::AvtpAudioServer(const std::string serverIP)
 {
 	cout << "Call AvtpAudioServer::AvtpAudioServer()." << endl;
 	

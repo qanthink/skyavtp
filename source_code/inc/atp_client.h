@@ -18,7 +18,7 @@ xxx 版权所有。
 class AvtpAudioClient
 {
 public:
-	AvtpAudioClient(const char *serverIP);
+	AvtpAudioClient(const std::string serverIP);
 	~AvtpAudioClient();
 
 	int sendAudioFrame(const void *buf, size_t len);
@@ -26,7 +26,7 @@ public:
 	bool isAllowTalking(){return bAllowTalking;};
 
 private:
-	const char *mServerIP = NULL;					// 服务器地址。
+	std::string mServerIP = "0.0.0.0";				// 服务器地址。
 	const unsigned short avtpPort = ATP_PORT;		// AVTP 端口号
 	std::shared_ptr<UdpSocket> pUdpSocket = NULL;	// 指向UDP Socket 对象。
 	

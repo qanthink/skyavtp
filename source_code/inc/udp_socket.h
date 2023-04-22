@@ -20,9 +20,11 @@ xxx 版权所有。
 #elif defined(__linux__)
 #endif
 
+#include <string>
+
 class UdpSocket{
 public:
-	UdpSocket(const char *localIP, const unsigned short ipPort);				// 用构造函数创建套接字。
+	UdpSocket(const std::string localIP, const unsigned short ipPort);				// 用构造函数创建套接字。
 	~UdpSocket();
 
 	// 发送UDP 数据。
@@ -43,6 +45,6 @@ private:
 #endif
 	bool bInit = false;
 	unsigned short mIpPort = 0;
-	const char *mLocalIP = NULL;
+	std::string mLocalIP = "0.0.0.0";
 };
 

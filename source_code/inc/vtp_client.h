@@ -22,6 +22,8 @@ public:
 	int changeFps10s(unsigned int fps);
 	int sendVideoFrame(const void *buf, size_t len);
 
+	bool isRunning(){return bRunning;};
+
 private:
 	std::string mServerIP = "0.0.0.0";				// 服务器地址。
 	const unsigned short mAvtpPort = VTP_PORT;		// 传输协议端口。
@@ -44,6 +46,7 @@ private:
 	unsigned int mFrameID = 0;			// 帧ID.
 	videoSliceGroup_t videoSliceGroup;	// video slice group.
 
+	/* 与统计丢包率有关。 */
 	unsigned int sendCnt = 0;
 	unsigned int resendCnt = 0;
 	double lossRate = 0.0;

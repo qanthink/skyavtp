@@ -23,6 +23,8 @@ public:
 
 	int sendAudioFrame(const void *buf, size_t len);
 	int recvAudioFrame(void *buf, size_t len);
+
+	bool isRunning(){return bRunning;};
 	bool isAllowTalking(){return bAllowTalking;};
 
 private:
@@ -39,7 +41,7 @@ private:
 	bool bAllowTalking = false;						// 允许对讲。
 	
 	unsigned int mTimeOutMs = 5000;					// 超时时间。
-	std::mutex mMtx;								// 互斥量
+	//std::mutex mMtx;								// 互斥量
 	audioFrame_t audioFrame;						// 音频帧数据
 	
 	const unsigned int queueDepths = 8;				// 音频队列

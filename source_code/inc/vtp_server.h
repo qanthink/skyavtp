@@ -48,6 +48,8 @@ public:
 
 	int recvVideoFrame(std::string clientIp, void *buf, size_t len);
 
+	bool isRunning(){return bRunning;};
+
 private:
 	const unsigned short avtpPort = VTP_PORT;		// AVTP 端口号
 	std::shared_ptr<UdpSocket> pUdpSocket = NULL;	// 指向UDP Socket 对象。

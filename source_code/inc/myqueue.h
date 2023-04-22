@@ -275,7 +275,7 @@ int MyQueue<T>::push(const T *pData, int force)
 	返回：	队列状态异常，返回-1;
 			队列空，返回-2.
 			正常出队，返回0.
-	注意：	
+	注意：	函数永远不会阻塞。
 */
 template <class T>
 int MyQueue<T>::pop(T *pData)

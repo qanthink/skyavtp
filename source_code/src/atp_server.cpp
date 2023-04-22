@@ -264,18 +264,18 @@ int AvtpAudioServer::listening()
 				}
 				else
 				{
-					cerr << "frameQueue is full. IP: " << clientIp << endl;
+					cerr << "frameQueue is full. IP: " << clientIp << ". sem_post()." << endl;
 				}
 				break;
 			}
 			case avtpDataType::TYPE_CMD_ReqStartTalk:
 			{
-				//bAllowTalking = true;
+				clientPool[clientIp]->bAllowTalking = true;
 				break;
 			}
 			case avtpDataType::TYPE_CMD_ReqStopTalk:
 			{
-				//bAllowTalking = false;
+				clientPool[clientIp]->bAllowTalking = true;
 				break;
 			}
 			case avtpDataType::TYPE_AV_VIDEO:
@@ -312,7 +312,7 @@ AudioClientProc::~AudioClientProc()
 /*
 	功能：	将Frame 数据从队列中取出来。
 	返回：	返回帧的长度。
-	注意：	
+	注意：	会因为sem_post() 而阻塞。故而用sem_timedwait().
 */
 int AudioClientProc::popFrame(void *buf, const unsigned int frameBufLen)
 {
@@ -320,14 +320,44 @@ int AudioClientProc::popFrame(void *buf, const unsigned int frameBufLen)
 	audioFrame_t audioFrame = {0};
 	while(1)		// 未来需要考虑停用协议时，如何跳出while 循环。
 	{
+		//cout << "sem_wait." << endl;
+		#if 0
 		sem_wait(&sem);
-		//cout << "wait end." << endl;
+		cout << "wait end." << endl;
+		#else
+		// 设置超时时间，暂定500ms.
+		unsigned int timeSec = 0;
+		unsigned int timeNsec = 500 * 1000 * 1000;	// Xns * 1000 * 1000 = Xms. 不能大于等于1000ms, 会溢出。
 		
+		struct timespec stTimeSpec;
+		clock_gettime(CLOCK_REALTIME, &stTimeSpec);
+		stTimeSpec.tv_sec += timeSec;
+		stTimeSpec.tv_nsec += timeNsec;
+		stTimeSpec.tv_sec += stTimeSpec.tv_nsec / 1000000000;
+		stTimeSpec.tv_nsec = stTimeSpec.tv_nsec % 1000000000;
+
 		int ret = 0;
+		ret = sem_timedwait(&sem, &stTimeSpec);
+		if(0 == ret)
+		{
+			// success. do next.
+		}
+		else if(-1 == ret && ETIMEDOUT == errno)
+		{
+			cout << "In AudioClientProc::popFrame(): sem_timedwait() timeout." << endl;
+			return 0;
+		}
+		else
+		{
+			cerr << "In AudioClientProc::popFrame(): sem_timedwait() fail." << endl;
+			return 0;
+		}
+		#endif
+
 		ret = frameQueue.pop(&audioFrame);
 		if(0 != ret)		// 队列异常或队列空，取数据失败，返回-1.
 		{
-			//cerr << "sliceQueue is empty or abnormal." << endl;
+			cerr << "sliceQueue is empty or abnormal." << endl;
 			continue;
 		}
 		else

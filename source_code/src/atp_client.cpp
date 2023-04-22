@@ -143,6 +143,7 @@ int AvtpAudioClient::listening()
 		else if(0 == ret)		// Timeout
 		{
 			cout << "In AvtpAudioClient::listening(). Timeout!" << endl;
+			bAllowTalking = false;
 			continue;
 		}
 		else
